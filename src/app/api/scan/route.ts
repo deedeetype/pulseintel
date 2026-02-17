@@ -92,15 +92,15 @@ export async function GET(request: NextRequest) {
  * Run agent asynchronously with progress updates
  */
 async function runAgentAsync(jobId: string, industry: string, userId: string) {
-  // Validate env vars
+  // Validate env vars (support both naming conventions)
   const supabaseUrl = process.env.SUPABASE_URL
-  const supabaseKey = process.env.SUPABASE_SERVICE_KEY
+  const supabaseKey = process.env.SUPABASE_SERVICE_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY
   
   if (!supabaseUrl || !supabaseKey) {
     console.error('[Agent] Missing Supabase credentials')
     console.error('SUPABASE_URL:', supabaseUrl ? 'present' : 'MISSING')
-    console.error('SUPABASE_SERVICE_KEY:', supabaseKey ? 'present' : 'MISSING')
-    throw new Error('supabaseUrl is required')
+    console.error('SUPABASE_SERVICE_KEY/ROLE_KEY:', supabaseKey ? 'present' : 'MISSING')
+    throw new Error('Supabase credentials required')
   }
   
   const supabase = createClient(supabaseUrl, supabaseKey)
