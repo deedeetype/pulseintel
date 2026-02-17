@@ -14,12 +14,13 @@ const INDUSTRIES = [
   { id: 'cybersecurity', name: 'Cybersecurity', icon: '🔒', description: 'Security tools, data protection' },
 ]
 
-export default function OnboardingPage() {
+export default function OnboardingSSEPage() {
   const router = useRouter()
   const [selectedIndustry, setSelectedIndustry] = useState<string | null>(null)
   const [isScanning, setIsScanning] = useState(false)
   const [scanProgress, setScanProgress] = useState(0)
   const [currentStep, setCurrentStep] = useState<string>('')
+  const [results, setResults] = useState<any>(null)
 
   const handleStartScan = async () => {
     if (!selectedIndustry) return
@@ -30,57 +31,43 @@ export default function OnboardingPage() {
     const industry = INDUSTRIES.find(i => i.id === selectedIndustry)
     
     try {
-      // Trigger agent scan
-      const response = await fetch('/api/scan', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          industry: industry?.name || selectedIndustry,
-          userId: 'demo_user', // TODO: Get from auth
-        }),
-      })
+      // Use Server-Sent Events for real-time updates
+      const eventSource = new EventSource(
+        `/api/scan/stream?industry=${encodeURIComponent(industry?.name || selectedIndustry)}&userId=demo_user`
+      )
 
-      const data = await response.json()
+      eventSource.onmessage = (event) => {
+        const data = JSON.parse(event.data)
+        console.log('[SSE] Event:', data)
 
-      if (!data.success) {
-        throw new Error(data.error || 'Failed to start scan')
+        if (data.type === 'started') {
+          setCurrentStep(data.message)
+        } else if (data.type === 'progress') {
+          setScanProgress(data.progress)
+          setCurrentStep(data.message)
+        } else if (data.type === 'completed') {
+          setScanProgress(100)
+          setCurrentStep('Dashboard ready!')
+          setResults(data.results)
+          eventSource.close()
+          
+          // Redirect after showing results
+          setTimeout(() => {
+            router.push('/dashboard')
+          }, 2000)
+        } else if (data.type === 'error') {
+          alert(`Error: ${data.message}`)
+          eventSource.close()
+          setIsScanning(false)
+        }
       }
 
-      const jobId = data.jobId
-
-      // Poll for progress updates
-      const pollInterval = setInterval(async () => {
-        try {
-          const progressResponse = await fetch(`/api/scan?jobId=${jobId}`)
-          const progress = await progressResponse.json()
-
-          if (progressResponse.ok) {
-            setScanProgress(progress.progress)
-            setCurrentStep(progress.message)
-
-            // If completed, redirect to dashboard
-            if (progress.status === 'completed') {
-              clearInterval(pollInterval)
-              await new Promise(resolve => setTimeout(resolve, 1000))
-              router.push('/dashboard')
-            }
-
-            // If failed, show error
-            if (progress.status === 'failed') {
-              clearInterval(pollInterval)
-              alert(`Scan failed: ${progress.message}`)
-              setIsScanning(false)
-            }
-          }
-        } catch (err) {
-          console.error('Polling error:', err)
-        }
-      }, 1000) // Poll every second
-
-      // Safety timeout: stop polling after 3 minutes
-      setTimeout(() => {
-        clearInterval(pollInterval)
-      }, 3 * 60 * 1000)
+      eventSource.onerror = (error) => {
+        console.error('[SSE] Error:', error)
+        eventSource.close()
+        alert('Connection error. Please try again.')
+        setIsScanning(false)
+      }
 
     } catch (error: any) {
       console.error('Scan error:', error)
@@ -114,12 +101,39 @@ export default function OnboardingPage() {
           </div>
           <p className="text-sm text-gray-500">{scanProgress}% complete</p>
 
+          {/* Show results when done */}
+          {results && (
+            <div className="mt-8 p-6 bg-green-50 rounded-xl border-2 border-green-200">
+              <p className="text-lg font-semibold text-green-800 mb-2">✅ Scan Complete!</p>
+              <div className="grid grid-cols-2 gap-4 text-sm">
+                <div>
+                  <span className="text-gray-600">Competitors:</span>
+                  <span className="ml-2 font-bold text-gray-900">{results.competitors}</span>
+                </div>
+                <div>
+                  <span className="text-gray-600">Alerts:</span>
+                  <span className="ml-2 font-bold text-gray-900">{results.alerts}</span>
+                </div>
+                <div>
+                  <span className="text-gray-600">Insights:</span>
+                  <span className="ml-2 font-bold text-gray-900">{results.insights}</span>
+                </div>
+                <div>
+                  <span className="text-gray-600">News:</span>
+                  <span className="ml-2 font-bold text-gray-900">{results.news}</span>
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* Fun facts while loading */}
-          <div className="mt-8 p-6 bg-purple-50 rounded-xl">
-            <p className="text-sm text-gray-700">
-              <span className="font-semibold">💡 Did you know?</span> Our AI analyzes thousands of data points in seconds to give you competitive intelligence that would take hours manually.
-            </p>
-          </div>
+          {!results && (
+            <div className="mt-8 p-6 bg-purple-50 rounded-xl">
+              <p className="text-sm text-gray-700">
+                <span className="font-semibold">💡 Real-time update:</span> This progress bar is connected to the actual AI agent running on the server. What you see is what's happening right now!
+              </p>
+            </div>
+          )}
         </div>
       </div>
     )
@@ -135,6 +149,9 @@ export default function OnboardingPage() {
           </h1>
           <p className="text-xl text-gray-600 max-w-2xl mx-auto">
             AI-powered competitive intelligence that automatically tracks your industry and alerts you to threats and opportunities.
+          </p>
+          <p className="mt-2 text-sm text-purple-600 font-semibold">
+            🔥 Real-time version with Server-Sent Events
           </p>
         </div>
 
@@ -207,12 +224,12 @@ export default function OnboardingPage() {
                 : 'bg-gray-300 text-gray-500 cursor-not-allowed'
             }`}
           >
-            {selectedIndustry ? '🚀 Start AI Scan' : 'Select an industry to continue'}
+            {selectedIndustry ? '🚀 Start Real AI Scan' : 'Select an industry to continue'}
           </button>
           
           {selectedIndustry && (
             <p className="mt-4 text-sm text-gray-500">
-              This will take approximately 20-30 seconds
+              Real-time progress updates • Takes approximately 20-30 seconds
             </p>
           )}
         </div>

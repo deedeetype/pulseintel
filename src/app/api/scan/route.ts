@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { startAgentScan, getScanProgress } from '@/lib/agent-runner'
 
 /**
  * API endpoint to trigger AI agent scan
@@ -17,23 +18,17 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // TODO: Trigger actual agent scan
-    // For now, this is a placeholder that returns immediately
-    // In production, you would:
-    // 1. Queue a background job
-    // 2. Call the agent script: exec(`node agent.js "${industry}"`)
-    // 3. Return job ID for polling
-    // 4. Use webhooks or SSE for real-time updates
-
     console.log(`[API] Scan requested for industry: ${industry}, user: ${userId || 'demo'}`)
 
-    // Simulate async scan (in production, this would be a background job)
+    // Start agent scan in background
+    const jobId = await startAgentScan(industry, userId || 'demo_user')
+
     return NextResponse.json({
       success: true,
       message: 'Scan initiated',
       industry,
+      jobId,
       estimatedDuration: 20,
-      jobId: `scan_${Date.now()}`, // Mock job ID
     })
 
   } catch (error) {
@@ -47,7 +42,7 @@ export async function POST(request: NextRequest) {
 
 /**
  * GET /api/scan?jobId=xxx
- * Check scan status (for future polling implementation)
+ * Check scan status (real-time polling)
  */
 export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams
@@ -60,11 +55,14 @@ export async function GET(request: NextRequest) {
     )
   }
 
-  // TODO: Implement actual job status checking
-  return NextResponse.json({
-    jobId,
-    status: 'completed', // pending | running | completed | failed
-    progress: 100,
-    message: 'Scan complete',
-  })
+  const progress = getScanProgress(jobId)
+
+  if (!progress) {
+    return NextResponse.json(
+      { error: 'Job not found or expired' },
+      { status: 404 }
+    )
+  }
+
+  return NextResponse.json(progress)
 }
