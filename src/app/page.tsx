@@ -48,7 +48,7 @@ export default function Home() {
             </p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
               <Link
-                href="/dashboard"
+                href="/onboarding"
                 className="px-8 py-4 bg-indigo-600 hover:bg-indigo-700 text-white text-lg font-semibold rounded-lg transition shadow-lg shadow-indigo-500/50"
               >
                 Start Free Trial
@@ -220,7 +220,7 @@ export default function Home() {
                 </div>
                 <p className="text-slate-400 mb-6">{plan.description}</p>
                 <Link
-                  href="/dashboard"
+                  href="/onboarding"
                   className={`block w-full py-3 text-center font-semibold rounded-lg transition ${
                     plan.popular
                       ? 'bg-indigo-600 hover:bg-indigo-700 text-white'
@@ -265,7 +265,7 @@ export default function Home() {
             Join hundreds of companies using PulseIntel to stay ahead
           </p>
           <Link
-            href="/dashboard"
+            href="/onboarding"
             className="inline-block px-8 py-4 bg-white text-indigo-600 text-lg font-semibold rounded-lg hover:bg-slate-100 transition"
           >
             Start Your Free Trial
