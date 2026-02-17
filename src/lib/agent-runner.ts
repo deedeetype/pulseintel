@@ -56,7 +56,8 @@ export function getScanProgress(jobId: string): ScanProgress | null {
  * Run agent asynchronously with progress updates
  */
 async function runAgentAsync(jobId: string, industry: string, userId: string) {
-  const agentPath = '/data/.openclaw/workspace/business/pulseintel-agent'
+  // Agent is embedded in the project
+  const agentPath = process.cwd() + '/agent'
   
   try {
     // Phase 1: Data Collection
@@ -78,10 +79,23 @@ async function runAgentAsync(jobId: string, industry: string, userId: string) {
     
     updateProgress(jobId, 90, 'Creating alerts and reports...')
     
-    // Actually run the agent
+    // Actually run the agent with environment variables from process.env
+    const env = {
+      ...process.env,
+      SUPABASE_URL: process.env.SUPABASE_URL,
+      SUPABASE_SERVICE_KEY: process.env.SUPABASE_SERVICE_KEY,
+      BRAVE_API_KEY: process.env.BRAVE_API_KEY,
+      NEWS_API_KEY: process.env.NEWS_API_KEY,
+      POE_API_KEY: process.env.POE_API_KEY,
+      DEMO_USER_ID: userId,
+    }
+    
     const { stdout, stderr } = await execAsync(
       `cd ${agentPath} && node agent.js "${industry}"`,
-      { timeout: 120000 } // 2 minute timeout
+      { 
+        timeout: 120000, // 2 minute timeout
+        env,
+      }
     )
     
     console.log('[Agent] stdout:', stdout)
