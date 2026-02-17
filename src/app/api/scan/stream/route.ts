@@ -64,10 +64,18 @@ async function runAgentWithProgress(
   controller: ReadableStreamDefaultController,
   encoder: TextEncoder
 ) {
-  const supabase = createClient(
-    process.env.SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_KEY!
-  )
+  // Validate env vars
+  const supabaseUrl = process.env.SUPABASE_URL
+  const supabaseKey = process.env.SUPABASE_SERVICE_KEY
+  
+  if (!supabaseUrl || !supabaseKey) {
+    console.error('[Agent SSE] Missing Supabase credentials')
+    console.error('SUPABASE_URL:', supabaseUrl ? 'present' : 'MISSING')
+    console.error('SUPABASE_SERVICE_KEY:', supabaseKey ? 'present' : 'MISSING')
+    throw new Error('supabaseUrl is required')
+  }
+  
+  const supabase = createClient(supabaseUrl, supabaseKey)
 
   const sendProgress = (progress: number, message: string, status: string = 'running', results?: any) => {
     controller.enqueue(encoder.encode(`data: ${JSON.stringify({
