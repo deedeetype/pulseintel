@@ -13,8 +13,11 @@ import InsightsView from '@/components/InsightsView'
 import NewsFeedView from '@/components/NewsFeedView'
 import ScanHistoryView from '@/components/ScanHistoryView'
 import IndustryAnalyticsView from '@/components/IndustryAnalyticsView'
+import SettingsView from '@/components/SettingsView'
+import { useSettings } from '@/contexts/SettingsContext'
 
 export default function Dashboard() {
+  const { settings, t } = useSettings()
   const [activeTab, setActiveTab] = useState('overview')
   const [showScanModal, setShowScanModal] = useState(false)
   const [scanIndustry, setScanIndustry] = useState('auto')
@@ -109,7 +112,7 @@ export default function Dashboard() {
       
       // Step 1: Find competitors via Perplexity
       setScanProgress('🔍 Finding competitors via AI...')
-      const { companies, count: compCount } = await callStep('competitors', { industry, scanId, companyUrl: companyUrl || undefined })
+      const { companies, count: compCount } = await callStep('competitors', { industry, scanId, companyUrl: companyUrl || undefined, maxCompetitors: settings.scanPreferences.maxCompetitors, regions: settings.scanPreferences.targetRegions })
       
       // Step 2: Collect news via Perplexity
       setScanProgress(`✓ Found ${compCount} competitors. 📰 Collecting news...`)
@@ -149,14 +152,14 @@ export default function Dashboard() {
         
         <nav className="px-3 space-y-1">
           {[
-            { id: 'overview', label: 'Overview', icon: '📊' },
-            { id: 'competitors', label: 'Competitors', icon: '🎯' },
-            { id: 'news', label: 'News Feed', icon: '📰' },
-            { id: 'analytics', label: 'Industry Analytics', icon: '📊' },
-            { id: 'alerts', label: 'Alerts', icon: '🔔', badge: alerts.filter(a => !a.read).length },
-            { id: 'insights', label: 'AI Insights', icon: '🤖' },
-            { id: 'myscans', label: 'My Scans', icon: '🗂️' },
-            { id: 'settings', label: 'Settings', icon: '⚙️' },
+            { id: 'overview', label: t('nav.overview'), icon: '📊' },
+            { id: 'competitors', label: t('nav.competitors'), icon: '🎯' },
+            { id: 'news', label: t('nav.news'), icon: '📰' },
+            { id: 'analytics', label: t('nav.analytics'), icon: '📊' },
+            { id: 'alerts', label: t('nav.alerts'), icon: '🔔', badge: alerts.filter(a => !a.read).length },
+            { id: 'insights', label: t('nav.insights'), icon: '🤖' },
+            { id: 'myscans', label: t('nav.myscans'), icon: '🗂️' },
+            { id: 'settings', label: t('nav.settings'), icon: '⚙️' },
           ].map((item) => (
             <button
               key={item.id}
@@ -183,11 +186,11 @@ export default function Dashboard() {
         <div className="absolute bottom-0 left-0 right-0 p-4 border-t border-slate-800">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 bg-gradient-to-br from-indigo-500 to-purple-500 rounded-full flex items-center justify-center text-white font-bold">
-              D
+              {(settings.profile.name || 'D')[0].toUpperCase()}
             </div>
             <div className="flex-1">
-              <div className="text-sm font-medium text-white">David</div>
-              <div className="text-xs text-slate-400">Pro Plan</div>
+              <div className="text-sm font-medium text-white">{settings.profile.name || 'David'}</div>
+              <div className="text-xs text-slate-400">{t('free_plan')}</div>
             </div>
           </div>
         </div>
@@ -200,10 +203,10 @@ export default function Dashboard() {
           <div className="flex items-center justify-between">
             <div>
               <h1 className="text-3xl font-bold text-white mb-2">
-                Welcome back, David 👋
+                {t('welcome')}, {settings.profile.name || 'David'} 👋
               </h1>
               <p className="text-slate-400">
-                Here's what's happening with your competitive landscape
+                {t('subtitle')}
               </p>
             </div>
             
@@ -211,7 +214,7 @@ export default function Dashboard() {
             <div className="flex items-center gap-3">
               {scans.length > 0 && (
                 <>
-                  <label className="text-sm text-slate-400 flex-shrink-0">Viewing:</label>
+                  <label className="text-sm text-slate-400 flex-shrink-0">{t('viewing')}</label>
                   <select
                     value={selectedScanId || ''}
                     onChange={(e) => setSelectedScanId(e.target.value)}
@@ -233,7 +236,12 @@ export default function Dashboard() {
               )}
               
               <button
-                onClick={() => { setShowScanModal(true); setCompanyUrl(''); setScanIndustry('Financial Services'); setScanProgress('') }}
+                onClick={() => { 
+                  setShowScanModal(true)
+                  setCompanyUrl(settings.profile.companyUrl || '')
+                  setScanIndustry(settings.profile.companyUrl ? 'auto' : (settings.profile.defaultIndustry || 'Financial Services'))
+                  setScanProgress('')
+                }}
                 disabled={isScanning}
                 className="bg-indigo-600 hover:bg-indigo-700 disabled:bg-slate-700 text-white px-4 py-2 rounded-lg font-medium transition flex items-center gap-2"
               >
@@ -433,11 +441,7 @@ export default function Dashboard() {
         )}
 
         {activeTab === 'settings' && (
-          <div className="text-center py-20">
-            <div className="text-6xl mb-4">⚙️</div>
-            <h2 className="text-2xl font-bold text-white mb-2">Settings</h2>
-            <p className="text-slate-400">Account settings, scan preferences, and notification configuration coming soon.</p>
-          </div>
+          <SettingsView />
         )}
       </main>
 

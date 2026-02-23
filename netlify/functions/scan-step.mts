@@ -142,16 +142,17 @@ async function stepInit(industry: string, companyUrl?: string, companyName?: str
 }
 
 // Step 1: Find competitors via Perplexity
-async function stepCompetitors(industry: string, scanId: string, companyUrl?: string) {
+async function stepCompetitors(industry: string, scanId: string, companyUrl?: string, maxCompetitors?: number, regions?: string[]) {
+  const max = maxCompetitors || 15
+  const regionStr = regions && regions.length > 0 && !regions.includes('Global') ? ` Focus on companies operating in: ${regions.join(', ')}.` : ''
   let prompt: string
   
   if (companyUrl) {
-    // Targeted scan: find direct competitors of this specific company
     prompt = `I run a company with this website: ${companyUrl}
 We operate in the ${industry} industry.
 
-Find our most relevant direct competitors (companies offering similar products/services to similar customers). 
-Only include truly relevant competitors — could be 5, 8, or 10 depending on the market. Quality over quantity.
+Find our most relevant direct competitors (companies offering similar products/services to similar customers).${regionStr}
+Return up to ${max} competitors. Quality over quantity.
 
 For each competitor provide:
 - name
@@ -161,8 +162,7 @@ For each competitor provide:
 
 JSON array: [{name, domain, description, position}]`
   } else {
-    // General industry scan
-    prompt = `List the top 10-15 most significant companies in the ${industry} industry (2025-2026). Include market leaders and notable startups. JSON array: [{name, domain, description (1-2 sentences), position}]`
+    prompt = `List the top ${max} most significant companies in the ${industry} industry (2025-2026).${regionStr} Include market leaders and notable startups. JSON array: [{name, domain, description (1-2 sentences), position}]`
   }
 
   const res = await fetch('https://api.perplexity.ai/chat/completions', {
@@ -180,7 +180,7 @@ JSON array: [{name, domain, description, position}]`
   const data = await res.json()
   const companies = parseJsonArray(data.choices[0].message.content)
     .filter((c: any) => c.name)
-    .slice(0, 15)
+    .slice(0, max)
   
   return { companies, count: companies.length }
 }
@@ -368,7 +368,7 @@ const handler: Handler = async (event: HandlerEvent, context: HandlerContext) =>
   }
 
   try {
-    const { step, industry, scanId, companies, news, companyUrl, companyName } = JSON.parse(event.body || '{}')
+    const { step, industry, scanId, companies, news, companyUrl, companyName, maxCompetitors, regions } = JSON.parse(event.body || '{}')
     
     if (!step) {
       return { statusCode: 400, headers: CORS, body: JSON.stringify({ error: 'step required' }) }
@@ -392,7 +392,7 @@ const handler: Handler = async (event: HandlerEvent, context: HandlerContext) =>
         result = await stepInit(industry, companyUrl, companyName)
         break
       case 'competitors':
-        result = await stepCompetitors(industry, scanId, companyUrl)
+        result = await stepCompetitors(industry, scanId, companyUrl, maxCompetitors, regions)
         break
       case 'news':
         result = await stepNews(industry)

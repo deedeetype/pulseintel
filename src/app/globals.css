@@ -6,4 +6,73 @@
   body {
     @apply bg-slate-900 text-white;
   }
+
+  /* Light theme overrides */
+  .light-theme body,
+  .light-theme {
+    @apply bg-slate-50 text-slate-900;
+  }
+
+  .light-theme .bg-slate-950 {
+    @apply !bg-slate-50;
+  }
+  .light-theme .bg-slate-900 {
+    @apply !bg-white;
+  }
+  .light-theme .bg-slate-800 {
+    @apply !bg-slate-100;
+  }
+  .light-theme .bg-slate-800\/50 {
+    @apply !bg-slate-100;
+  }
+  .light-theme .border-slate-800 {
+    @apply !border-slate-200;
+  }
+  .light-theme .border-slate-700 {
+    @apply !border-slate-300;
+  }
+  .light-theme .text-white {
+    @apply !text-slate-900;
+  }
+  .light-theme .text-slate-400 {
+    @apply !text-slate-500;
+  }
+  .light-theme .text-slate-300 {
+    @apply !text-slate-600;
+  }
+  .light-theme .text-slate-500 {
+    @apply !text-slate-400;
+  }
+
+  /* Light theme sidebar */
+  .light-theme aside.bg-slate-900 {
+    @apply !bg-white !border-slate-200;
+  }
+  .light-theme .hover\:bg-slate-800:hover {
+    @apply !bg-slate-100;
+  }
+  .light-theme .hover\:text-white:hover {
+    @apply !text-slate-900;
+  }
+
+  /* Light theme inputs */
+  .light-theme select,
+  .light-theme input[type="text"],
+  .light-theme input[type="email"],
+  .light-theme input[type="url"] {
+    @apply !bg-white !text-slate-900 !border-slate-300;
+  }
+  .light-theme select option {
+    @apply !bg-white !text-slate-900;
+  }
+
+  /* Light theme modal */
+  .light-theme .backdrop-blur-sm {
+    @apply !bg-black/30;
+  }
+
+  /* Keep gradient text visible */
+  .light-theme .bg-gradient-to-r.from-indigo-400.to-cyan-400 {
+    @apply from-indigo-600 to-cyan-600;
+  }
 }
