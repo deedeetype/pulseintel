@@ -51,7 +51,12 @@ export default function ScanHistoryView({ scans, loading, selectedScanId, onSele
           >
             <div className="flex items-center justify-between">
               <div>
-                <h3 className="text-lg font-bold text-white">{scan.industry}</h3>
+                <h3 className="text-lg font-bold text-white">
+                  {scan.company_name ? `${scan.company_name} — ` : ''}{scan.industry}
+                </h3>
+                {scan.company_url && (
+                  <p className="text-xs text-indigo-400 mt-0.5">{scan.company_url}</p>
+                )}
                 <p className="text-sm text-slate-400 mt-1">{formatDate(scan.created_at)}</p>
               </div>
               <span className={`px-3 py-1 rounded-full text-xs border ${statusStyle(scan.status)}`}>

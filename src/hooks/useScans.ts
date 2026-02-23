@@ -14,6 +14,9 @@ export interface Scan {
   created_at: string
   completed_at?: string
   duration_seconds?: number
+  company_url?: string
+  company_name?: string
+  industry_analytics?: any
 }
 
 export function useScans(limit?: number) {

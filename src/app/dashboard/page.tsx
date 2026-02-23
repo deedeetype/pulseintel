@@ -12,11 +12,12 @@ import AlertsView from '@/components/AlertsView'
 import InsightsView from '@/components/InsightsView'
 import NewsFeedView from '@/components/NewsFeedView'
 import ScanHistoryView from '@/components/ScanHistoryView'
+import IndustryAnalyticsView from '@/components/IndustryAnalyticsView'
 
 export default function Dashboard() {
   const [activeTab, setActiveTab] = useState('overview')
   const [showScanModal, setShowScanModal] = useState(false)
-  const [scanIndustry, setScanIndustry] = useState('Financial Services')
+  const [scanIndustry, setScanIndustry] = useState('auto')
   const [companyUrl, setCompanyUrl] = useState('')
   const [isScanning, setIsScanning] = useState(false)
   const [scanProgress, setScanProgress] = useState('')
@@ -82,21 +83,37 @@ export default function Dashboard() {
     setIsScanning(true)
     
     try {
+      let industry = scanIndustry
+      let companyName = ''
+
+      // Auto-detect industry from URL if needed
+      if ((industry === 'auto' || !industry) && companyUrl) {
+        setScanProgress('🔎 Analyzing company website...')
+        const detected = await callStep('detect', { companyUrl })
+        industry = detected.industry
+        companyName = detected.company_name
+        setScanProgress(`✓ Detected: ${companyName} → ${industry}`)
+      } else if (industry === 'auto' && !companyUrl) {
+        setScanProgress('❌ Please provide a company URL or select an industry')
+        setTimeout(() => setIsScanning(false), 2000)
+        return
+      }
+
       // Step 0: Create scan record
-      setScanProgress('Initializing scan...')
-      const { scanId } = await callStep('init', { industry: scanIndustry })
+      setScanProgress(`Initializing ${industry} scan...`)
+      const { scanId } = await callStep('init', { industry, companyUrl: companyUrl || undefined, companyName: companyName || undefined })
       
       // Step 1: Find competitors via Perplexity
       setScanProgress('🔍 Finding competitors via AI...')
-      const { companies, count: compCount } = await callStep('competitors', { industry: scanIndustry, scanId, companyUrl: companyUrl || undefined })
+      const { companies, count: compCount } = await callStep('competitors', { industry, scanId, companyUrl: companyUrl || undefined })
       
       // Step 2: Collect news via Perplexity
       setScanProgress(`✓ Found ${compCount} competitors. 📰 Collecting news...`)
-      const { news, count: newsCount } = await callStep('news', { industry: scanIndustry })
+      const { news, count: newsCount } = await callStep('news', { industry })
       
       // Step 3: Analyze + write to Supabase
-      setScanProgress(`✓ ${compCount} competitors, ${newsCount} news items. 🧠 AI analysis...`)
-      const results = await callStep('analyze', { industry: scanIndustry, scanId, companies, news })
+      setScanProgress(`✓ ${compCount} competitors, ${newsCount} news items. 🧠 AI analysis & market data...`)
+      const results = await callStep('analyze', { industry, scanId, companies, news })
       
       // Done!
       setScanProgress(`✅ Done! ${results.competitors} competitors, ${results.alerts} alerts, ${results.insights} insights, ${results.news} news`)
@@ -131,7 +148,7 @@ export default function Dashboard() {
             { id: 'overview', label: 'Overview', icon: '📊' },
             { id: 'competitors', label: 'Competitors', icon: '🎯' },
             { id: 'news', label: 'News Feed', icon: '📰' },
-            { id: 'trends', label: 'Trends', icon: '📈' },
+            { id: 'analytics', label: 'Industry Analytics', icon: '📊' },
             { id: 'alerts', label: 'Alerts', icon: '🔔', badge: criticalAlertsCount },
             { id: 'insights', label: 'AI Insights', icon: '🤖' },
             { id: 'reports', label: 'Reports', icon: '📄' },
@@ -203,9 +220,10 @@ export default function Dashboard() {
                       const time = new Date(scan.created_at).toLocaleTimeString('en-US', {
                         hour: 'numeric', minute: '2-digit'
                       })
+                      const label = scan.company_name ? `${scan.company_name} (${scan.industry})` : scan.industry
                       return (
                         <option key={scan.id} value={scan.id}>
-                          {scan.industry} - {date} at {time}
+                          {label} - {date} at {time}
                         </option>
                       )
                     })}
@@ -214,7 +232,7 @@ export default function Dashboard() {
               )}
               
               <button
-                onClick={() => setShowScanModal(true)}
+                onClick={() => { setShowScanModal(true); setCompanyUrl(''); setScanIndustry('Financial Services'); setScanProgress('') }}
                 disabled={isScanning}
                 className="bg-indigo-600 hover:bg-indigo-700 disabled:bg-slate-700 text-white px-4 py-2 rounded-lg font-medium transition flex items-center gap-2"
               >
@@ -405,12 +423,12 @@ export default function Dashboard() {
           />
         )}
 
-        {activeTab === 'trends' && (
-          <div className="text-center py-20">
-            <div className="text-6xl mb-4">📈</div>
-            <h2 className="text-2xl font-bold text-white mb-2">Market Trends</h2>
-            <p className="text-slate-400">Trend analysis coming soon. Run multiple scans to build trend data!</p>
-          </div>
+        {activeTab === 'analytics' && (
+          <IndustryAnalyticsView
+            analytics={selectedScan?.industry_analytics || null}
+            industry={selectedScan?.industry || 'Unknown'}
+            loading={loadingScans}
+          />
         )}
 
         {activeTab === 'settings' && (
@@ -433,22 +451,27 @@ export default function Dashboard() {
 
             <div className="mb-4">
               <label className="block text-sm font-medium text-slate-400 mb-2">
-                Your Company Website <span className="text-slate-600">(optional)</span>
+                Company Website
               </label>
               <input
                 type="url"
                 value={companyUrl}
-                onChange={(e) => setCompanyUrl(e.target.value)}
+                onChange={(e) => {
+                  setCompanyUrl(e.target.value)
+                  if (e.target.value && scanIndustry !== 'auto') setScanIndustry('auto')
+                }}
                 placeholder="https://yourcompany.com"
                 disabled={isScanning}
                 className="w-full bg-slate-800 text-white px-4 py-3 rounded-lg border border-slate-700 focus:border-indigo-500 focus:outline-none disabled:opacity-50 placeholder-slate-600"
               />
-              <p className="text-xs text-slate-500 mt-1">Providing your website helps AI find your most relevant direct competitors.</p>
+              <p className="text-xs text-slate-500 mt-1">
+                {companyUrl ? 'AI will auto-detect the industry and find direct competitors.' : 'Provide a URL for targeted competitor analysis, or select an industry below.'}
+              </p>
             </div>
 
             <div className="mb-6">
               <label className="block text-sm font-medium text-slate-400 mb-2">
-                Industry
+                Industry {companyUrl && <span className="text-indigo-400 text-xs ml-1">(auto-detected from URL)</span>}
               </label>
               <select
                 value={scanIndustry}
@@ -456,6 +479,7 @@ export default function Dashboard() {
                 disabled={isScanning}
                 className="w-full bg-slate-800 text-white px-4 py-3 rounded-lg border border-slate-700 focus:border-indigo-500 focus:outline-none disabled:opacity-50"
               >
+                {companyUrl && <option value="auto">🔎 Auto-detect from URL</option>}
                 <option value="Financial Services">Financial Services</option>
                 <option value="Healthcare">Healthcare</option>
                 <option value="Technology">Technology</option>
@@ -471,6 +495,14 @@ export default function Dashboard() {
                 <option value="Energy">Energy</option>
                 <option value="Retail">Retail</option>
                 <option value="Legal Tech">Legal Tech</option>
+                <option value="Insurance">Insurance</option>
+                <option value="Consulting">Consulting</option>
+                <option value="Manufacturing">Manufacturing</option>
+                <option value="Telecommunications">Telecommunications</option>
+                <option value="Media & Entertainment">Media & Entertainment</option>
+                <option value="Food & Beverage">Food & Beverage</option>
+                <option value="Automotive">Automotive</option>
+                <option value="Biotech">Biotech</option>
               </select>
             </div>
 

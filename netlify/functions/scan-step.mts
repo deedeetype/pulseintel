@@ -65,7 +65,7 @@ async function poeRequest(prompt: string) {
     method: 'POST',
     headers: { 'Authorization': `Bearer ${POE_KEY}`, 'Content-Type': 'application/json' },
     body: JSON.stringify({
-      model: 'Claude-Sonnet-4.5',
+      model: 'Claude-3.5-Sonnet',
       messages: [{ role: 'user', content: prompt }],
       temperature: 0.3,
       max_tokens: 2000
@@ -77,12 +77,50 @@ async function poeRequest(prompt: string) {
 
 // ========== STEPS ==========
 
+// Step -1: Detect industry from company URL
+async function stepDetect(companyUrl: string) {
+  const res = await fetch('https://api.perplexity.ai/chat/completions', {
+    method: 'POST',
+    headers: { 'Authorization': `Bearer ${PERPLEXITY_KEY}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      model: 'sonar-pro',
+      messages: [
+        { role: 'system', content: 'Business analyst. Respond with valid JSON only. No markdown.' },
+        { role: 'user', content: `Analyze this company website: ${companyUrl}
+Identify the company name and its primary industry.
+JSON: {"company_name": "X", "industry": "Y", "description": "1-2 sentence description of what the company does"}
+Use one of these industry labels if applicable: Financial Services, Healthcare, Technology, E-commerce, SaaS, Fintech, Cybersecurity, AI/ML, Gaming, EdTech, Real Estate, Logistics, Energy, Retail, Legal Tech, Insurance, Consulting, Manufacturing, Telecommunications, Media & Entertainment, Food & Beverage, Automotive, Aerospace, Biotech, Crypto/Web3.
+If none fit perfectly, use the most accurate industry label.` }
+      ],
+      temperature: 0.2, max_tokens: 500
+    })
+  })
+  const data = await res.json()
+  const content = data.choices[0].message.content
+  try {
+    const match = content.match(/\{[\s\S]*\}/)
+    if (match) {
+      const parsed = JSON.parse(match[0])
+      return { 
+        company_name: parsed.company_name || 'Unknown',
+        industry: parsed.industry || 'Technology',
+        description: parsed.description || ''
+      }
+    }
+  } catch (e) {
+    console.error('Detect parse error:', e)
+  }
+  return { company_name: 'Unknown', industry: 'Technology', description: '' }
+}
+
 // Step 0: Create scan record
-async function stepInit(industry: string) {
+async function stepInit(industry: string, companyUrl?: string, companyName?: string) {
   const [scan] = await supabasePost('scans', {
     user_id: DEMO_USER_ID,
     industry,
-    status: 'running'
+    status: 'running',
+    company_url: companyUrl || null,
+    company_name: companyName || null
   })
   return { scanId: scan.id }
 }
@@ -215,6 +253,34 @@ JSON: [{"title":"X","description":"Context","priority":"critical|attention|info"
     }))
   ) : []
 
+  // Generate industry analytics via AI
+  const analyticsContent = await poeRequest(`Generate market analytics data for the ${industry} industry. Provide realistic estimated data points.
+JSON object only:
+{
+  "market_size_billions": 150,
+  "market_size_year": 2025,
+  "projected_size_billions": 220,
+  "projected_year": 2030,
+  "cagr_percent": 8.5,
+  "top_segments": [{"name": "Segment A", "share_percent": 35}, {"name": "Segment B", "share_percent": 25}, {"name": "Segment C", "share_percent": 20}, {"name": "Other", "share_percent": 20}],
+  "growth_drivers": ["Driver 1", "Driver 2", "Driver 3"],
+  "key_trends": [{"trend": "Trend name", "impact": "high|medium|low", "description": "1 sentence"}],
+  "funding_activity": {"total_billions": 12, "deal_count": 350, "avg_deal_millions": 34, "yoy_change_percent": 15},
+  "market_leaders_share": [{"name": "Company", "share_percent": 15}],
+  "regional_distribution": [{"region": "North America", "share_percent": 40}, {"region": "Europe", "share_percent": 25}, {"region": "Asia Pacific", "share_percent": 25}, {"region": "Rest of World", "share_percent": 10}]
+}
+Use the actual known competitor names from this list where possible: ${analyzed.slice(0,8).map((c: any) => c.name).join(', ')}`)
+
+  let industryAnalytics = null
+  try {
+    const match = analyticsContent.match(/\{[\s\S]*\}/)
+    if (match) {
+      industryAnalytics = JSON.parse(match[0].replace(/,(\s*[}\]])/g, '$1'))
+    }
+  } catch (e) {
+    console.error('Analytics parse error:', e)
+  }
+
   // Mark scan as completed
   await supabasePatch('scans', `id=eq.${scanId}`, {
     status: 'completed',
@@ -222,7 +288,8 @@ JSON: [{"title":"X","description":"Context","priority":"critical|attention|info"
     competitors_count: insertedCompetitors.length,
     alerts_count: insertedAlerts.length,
     insights_count: insertedInsights.length,
-    news_count: insertedNews.length
+    news_count: insertedNews.length,
+    industry_analytics: industryAnalytics
   })
 
   return {
@@ -245,17 +312,28 @@ const handler: Handler = async (event: HandlerEvent, context: HandlerContext) =>
   }
 
   try {
-    const { step, industry, scanId, companies, news, companyUrl } = JSON.parse(event.body || '{}')
+    const { step, industry, scanId, companies, news, companyUrl, companyName } = JSON.parse(event.body || '{}')
     
-    if (!step || !industry) {
-      return { statusCode: 400, headers: CORS, body: JSON.stringify({ error: 'step and industry required' }) }
+    if (!step) {
+      return { statusCode: 400, headers: CORS, body: JSON.stringify({ error: 'step required' }) }
+    }
+
+    // detect step doesn't need industry
+    if (step !== 'detect' && !industry) {
+      return { statusCode: 400, headers: CORS, body: JSON.stringify({ error: 'industry required' }) }
     }
 
     let result: any
 
     switch (step) {
+      case 'detect':
+        if (!companyUrl) {
+          return { statusCode: 400, headers: CORS, body: JSON.stringify({ error: 'companyUrl required for detect step' }) }
+        }
+        result = await stepDetect(companyUrl)
+        break
       case 'init':
-        result = await stepInit(industry)
+        result = await stepInit(industry, companyUrl, companyName)
         break
       case 'competitors':
         result = await stepCompetitors(industry, scanId, companyUrl)
