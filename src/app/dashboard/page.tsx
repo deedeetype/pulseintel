@@ -27,6 +27,30 @@ export default function Dashboard() {
   const [initialAlertId, setInitialAlertId] = useState<string | null>(null)
   const [initialCompetitorId, setInitialCompetitorId] = useState<string | null>(null)
   
+  // Sidebar state - responsive mobile + collapsible desktop
+  const [sidebarOpen, setSidebarOpen] = useState(() => {
+    if (typeof window !== 'undefined') {
+      const isMobile = window.innerWidth < 768
+      const savedState = localStorage.getItem('sidebarOpen')
+      return isMobile ? false : (savedState !== null ? savedState === 'true' : true)
+    }
+    return true
+  })
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('sidebarCollapsed')
+      return saved === 'true'
+    }
+    return false
+  })
+  
+  // Save sidebar state to localStorage
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('sidebarCollapsed', sidebarCollapsed.toString())
+    }
+  }, [sidebarCollapsed])
+  
   // Fetch scans first
   const { scans, loading: loadingScans, refetch: refetchScans } = useScans(10)
   const [selectedScanId, setSelectedScanId] = useState<string | undefined>(undefined)
@@ -85,7 +109,7 @@ export default function Dashboard() {
     return data
   }
 
-  // Run scan - orchestrate 4 steps from frontend
+  // Run scan - orchestrate steps from frontend with incremental scan support
   async function handleRunScan() {
     setIsScanning(true)
     
@@ -106,24 +130,56 @@ export default function Dashboard() {
         return
       }
 
-      // Step 0: Create scan record
+      // Step 0: Create scan record + check for previous scan
       setScanProgress(`Initializing ${industry} scan...`)
-      const { scanId } = await callStep('init', { industry, companyUrl: companyUrl || undefined, companyName: companyName || undefined })
+      const initResult = await callStep('init', { industry, companyUrl: companyUrl || undefined, companyName: companyName || undefined })
+      const { scanId, previousScanId, hasExistingData } = initResult
       
-      // Step 1: Find competitors via Perplexity
-      setScanProgress('🔍 Finding competitors via AI...')
-      const { companies, count: compCount } = await callStep('competitors', { industry, scanId, companyUrl: companyUrl || undefined, maxCompetitors: settings.scanPreferences.maxCompetitors, regions: settings.scanPreferences.targetRegions })
+      let companies: any[] = []
+      let compCount = 0
+      
+      // Step 1: Find competitors OR copy from previous scan
+      if (hasExistingData && previousScanId) {
+        setScanProgress('♻️ Incremental scan detected. Copying existing competitors...')
+        const { count } = await callStep('copy-competitors', { previousScanId, scanId })
+        compCount = count
+        setScanProgress(`✓ Copied ${compCount} competitors from previous scan.`)
+        // For analyze step, we need to pass a dummy companies array with previousScanId marker
+        companies = [{ previousScanId }]
+      } else {
+        setScanProgress('🔍 Finding competitors via AI...')
+        const watchlist = settings.scanPreferences.watchlist || []
+        const competitorsResult = await callStep('competitors', { 
+          industry, 
+          scanId, 
+          companyUrl: companyUrl || undefined, 
+          maxCompetitors: settings.scanPreferences.maxCompetitors, 
+          regions: settings.scanPreferences.targetRegions,
+          watchlist 
+        })
+        companies = competitorsResult.companies
+        compCount = competitorsResult.count
+        setScanProgress(`✓ Found ${compCount} competitors.`)
+      }
       
       // Step 2: Collect news via Perplexity
-      setScanProgress(`✓ Found ${compCount} competitors. 📰 Collecting news...`)
+      setScanProgress(`📰 Collecting recent ${industry} news...`)
       const { news, count: newsCount } = await callStep('news', { industry })
       
-      // Step 3: Analyze + write to Supabase
-      setScanProgress(`✓ ${compCount} competitors, ${newsCount} news items. 🧠 AI analysis & market data...`)
-      const results = await callStep('analyze', { industry, scanId, companies, news })
+      // Step 3: Analyze + write to Supabase (skip competitors/analytics if incremental)
+      setScanProgress(`✓ ${newsCount} news items. 🧠 AI analysis...`)
+      const results = await callStep('analyze', { 
+        industry, 
+        scanId, 
+        companies, 
+        news,
+        skipCompetitors: hasExistingData,
+        skipAnalytics: hasExistingData
+      })
       
       // Done!
-      setScanProgress(`✅ Done! ${results.competitors} competitors, ${results.alerts} alerts, ${results.insights} insights, ${results.news} news`)
+      const scanType = hasExistingData ? 'Incremental' : 'Full'
+      setScanProgress(`✅ ${scanType} scan complete! ${compCount} competitors, ${results.alerts} alerts, ${results.insights} insights, ${results.news} news`)
       
       await refetchScans()
       setSelectedScanId(scanId)
@@ -140,14 +196,37 @@ export default function Dashboard() {
     }
   }
 
+  const sidebarWidth = sidebarCollapsed ? 'w-16' : 'w-64'
+  const mainMargin = sidebarCollapsed ? 'ml-0 md:ml-16' : 'ml-0 md:ml-64'
+
   return (
     <div className="min-h-screen bg-slate-950">
+      {/* Mobile Overlay */}
+      {sidebarOpen && (
+        <div 
+          className="fixed inset-0 bg-black/50 backdrop-blur-sm z-40 md:hidden"
+          onClick={() => setSidebarOpen(false)}
+        />
+      )}
+      
       {/* Sidebar */}
-      <aside className="fixed left-0 top-0 h-full w-64 bg-slate-900 border-r border-slate-800">
-        <div className="p-6">
-          <Link href="/" className="text-2xl font-bold bg-gradient-to-r from-indigo-400 to-cyan-400 bg-clip-text text-transparent">
+      <aside className={`fixed left-0 top-0 h-full ${sidebarWidth} bg-slate-900 border-r border-slate-800 transition-all duration-300 z-50 ${
+        sidebarOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'
+      }`}>
+        <div className="p-6 flex items-center justify-between">
+          <Link href="/" className={`text-2xl font-bold bg-gradient-to-r from-indigo-400 to-cyan-400 bg-clip-text text-transparent ${sidebarCollapsed ? 'hidden' : ''}`}>
             PulseIntel
           </Link>
+          {sidebarCollapsed && (
+            <Link href="/" className="text-xl font-bold text-indigo-400">PI</Link>
+          )}
+          <button
+            onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
+            className="hidden md:block text-slate-400 hover:text-white transition"
+            title={sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+          >
+            {sidebarCollapsed ? '»' : '«'}
+          </button>
         </div>
         
         <nav className="px-3 space-y-1">
@@ -163,44 +242,71 @@ export default function Dashboard() {
           ].map((item) => (
             <button
               key={item.id}
-              onClick={() => setActiveTab(item.id)}
-              className={`w-full flex items-center justify-between px-4 py-3 rounded-lg transition ${
+              onClick={() => {
+                setActiveTab(item.id)
+                // Close sidebar on mobile when tab clicked
+                if (window.innerWidth < 768) {
+                  setSidebarOpen(false)
+                }
+              }}
+              className={`w-full flex items-center ${sidebarCollapsed ? 'justify-center' : 'justify-between'} px-4 py-3 rounded-lg transition ${
                 activeTab === item.id
                   ? 'bg-indigo-600 text-white'
                   : 'text-slate-400 hover:bg-slate-800 hover:text-white'
               }`}
+              title={sidebarCollapsed ? item.label : undefined}
             >
-              <div className="flex items-center gap-3">
+              <div className={`flex items-center ${sidebarCollapsed ? '' : 'gap-3'}`}>
                 <span className="text-lg">{item.icon}</span>
-                <span className="font-medium">{item.label}</span>
+                {!sidebarCollapsed && <span className="font-medium">{item.label}</span>}
               </div>
-              {item.badge && item.badge > 0 && (
+              {!sidebarCollapsed && item.badge && item.badge > 0 && (
                 <span className="px-2 py-1 bg-red-600 text-white text-xs font-bold rounded-full">
                   {item.badge}
                 </span>
+              )}
+              {sidebarCollapsed && item.badge && item.badge > 0 && (
+                <span className="absolute top-1 right-1 w-2 h-2 bg-red-600 rounded-full"></span>
               )}
             </button>
           ))}
         </nav>
 
-        <div className="absolute bottom-0 left-0 right-0 p-4 border-t border-slate-800">
-          <div className="flex items-center gap-3">
+        {!sidebarCollapsed && (
+          <div className="absolute bottom-0 left-0 right-0 p-4 border-t border-slate-800">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-gradient-to-br from-indigo-500 to-purple-500 rounded-full flex items-center justify-center text-white font-bold">
+                {(settings.profile.name || 'D')[0].toUpperCase()}
+              </div>
+              <div className="flex-1">
+                <div className="text-sm font-medium text-white">{settings.profile.name || 'David'}</div>
+                <div className="text-xs text-slate-400">{t('free_plan')}</div>
+              </div>
+            </div>
+          </div>
+        )}
+        
+        {sidebarCollapsed && (
+          <div className="absolute bottom-0 left-0 right-0 p-4 border-t border-slate-800 flex justify-center">
             <div className="w-10 h-10 bg-gradient-to-br from-indigo-500 to-purple-500 rounded-full flex items-center justify-center text-white font-bold">
               {(settings.profile.name || 'D')[0].toUpperCase()}
             </div>
-            <div className="flex-1">
-              <div className="text-sm font-medium text-white">{settings.profile.name || 'David'}</div>
-              <div className="text-xs text-slate-400">{t('free_plan')}</div>
-            </div>
           </div>
-        </div>
+        )}
       </aside>
 
       {/* Main Content */}
-      <main className="ml-64 p-8">
+      <main className={`${mainMargin} p-4 md:p-8 transition-all duration-300`}>
+        {/* Mobile Hamburger Button */}
+        <button
+          onClick={() => setSidebarOpen(!sidebarOpen)}
+          className="md:hidden fixed top-4 left-4 z-30 p-2 bg-slate-900 border border-slate-800 rounded-lg text-white text-xl"
+        >
+          ☰
+        </button>
         {/* Header */}
-        <div className="mb-8">
-          <div className="flex items-center justify-between">
+        <div className="mb-8 mt-12 md:mt-0">
+          <div className="flex items-center justify-between flex-wrap gap-4">
             <div>
               <h1 className="text-3xl font-bold text-white mb-2">
                 {t('welcome')}, {settings.profile.name || 'David'} 👋

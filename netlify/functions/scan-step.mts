@@ -129,7 +129,7 @@ JSON: {"company_name": "X", "industry": "Y", "description": "1-2 sentence descri
   return { company_name: 'Unknown', industry: 'Technology', description: '' }
 }
 
-// Step 0: Create scan record
+// Step 0: Create scan record + check for previous scan
 async function stepInit(industry: string, companyUrl?: string, companyName?: string) {
   const [scan] = await supabasePost('scans', {
     user_id: DEMO_USER_ID,
@@ -138,13 +138,36 @@ async function stepInit(industry: string, companyUrl?: string, companyName?: str
     company_url: companyUrl || null,
     company_name: companyName || null
   })
-  return { scanId: scan.id }
+  
+  // Check for previous completed scan with same industry + company_url
+  if (companyUrl) {
+    const res = await fetch(
+      `${SUPABASE_URL}/rest/v1/scans?user_id=eq.${DEMO_USER_ID}&industry=eq.${encodeURIComponent(industry)}&company_url=eq.${encodeURIComponent(companyUrl)}&status=eq.completed&order=created_at.desc&limit=1`,
+      {
+        headers: {
+          'apikey': SUPABASE_KEY!,
+          'Authorization': `Bearer ${SUPABASE_KEY}`,
+        }
+      }
+    )
+    const previousScans = await res.json()
+    if (previousScans && previousScans.length > 0 && previousScans[0].id !== scan.id) {
+      return { 
+        scanId: scan.id, 
+        previousScanId: previousScans[0].id,
+        hasExistingData: true
+      }
+    }
+  }
+  
+  return { scanId: scan.id, hasExistingData: false }
 }
 
 // Step 1: Find competitors via Perplexity
-async function stepCompetitors(industry: string, scanId: string, companyUrl?: string, maxCompetitors?: number, regions?: string[]) {
+async function stepCompetitors(industry: string, scanId: string, companyUrl?: string, maxCompetitors?: number, regions?: string[], watchlist?: string[]) {
   const max = maxCompetitors || 15
   const regionStr = regions && regions.length > 0 && !regions.includes('Global') ? ` Focus on companies operating in: ${regions.join(', ')}.` : ''
+  const watchlistStr = watchlist && watchlist.length > 0 ? `\n\nIMPORTANT: You MUST include these companies in the results: ${watchlist.join(', ')}.` : ''
   let prompt: string
   
   if (companyUrl) {
@@ -152,7 +175,7 @@ async function stepCompetitors(industry: string, scanId: string, companyUrl?: st
 We operate in the ${industry} industry.
 
 Find our most relevant direct competitors (companies offering similar products/services to similar customers).${regionStr}
-Return up to ${max} competitors. Quality over quantity.
+Return up to ${max} competitors. Quality over quantity.${watchlistStr}
 
 For each competitor provide:
 - name
@@ -162,7 +185,7 @@ For each competitor provide:
 
 JSON array: [{name, domain, description, position}]`
   } else {
-    prompt = `List the top ${max} most significant companies in the ${industry} industry (2025-2026).${regionStr} Include market leaders and notable startups. JSON array: [{name, domain, description (1-2 sentences), position}]`
+    prompt = `List the top ${max} most significant companies in the ${industry} industry (2025-2026).${regionStr} Include market leaders and notable startups.${watchlistStr} JSON array: [{name, domain, description (1-2 sentences), position}]`
   }
 
   const res = await fetch('https://api.perplexity.ai/chat/completions', {
@@ -207,14 +230,60 @@ async function stepNews(industry: string) {
   return { news, count: news.length }
 }
 
+// Step 1.5: Copy competitors from previous scan
+async function stepCopyCompetitors(previousScanId: string, newScanId: string) {
+  // Fetch competitors from previous scan
+  const res = await fetch(
+    `${SUPABASE_URL}/rest/v1/competitors?scan_id=eq.${previousScanId}`,
+    {
+      headers: {
+        'apikey': SUPABASE_KEY!,
+        'Authorization': `Bearer ${SUPABASE_KEY}`,
+      }
+    }
+  )
+  const previousCompetitors = await res.json()
+  
+  if (previousCompetitors && previousCompetitors.length > 0) {
+    // Copy competitors with new scan_id
+    const copiedCompetitors = await supabasePost('competitors',
+      previousCompetitors.map((c: any) => ({
+        user_id: c.user_id,
+        scan_id: newScanId,
+        name: c.name,
+        domain: c.domain,
+        industry: c.industry,
+        threat_score: c.threat_score,
+        activity_level: c.activity_level,
+        description: c.description,
+        employee_count: c.employee_count,
+        stock_ticker: c.stock_ticker,
+        stock_price: c.stock_price,
+        stock_currency: c.stock_currency,
+        stock_change_percent: c.stock_change_percent,
+        sentiment_score: c.sentiment_score,
+        last_activity_date: c.last_activity_date
+      }))
+    )
+    return { count: copiedCompetitors.length }
+  }
+  return { count: 0 }
+}
+
 // Step 3: Analyze with Claude + write everything to Supabase
-async function stepAnalyzeAndWrite(industry: string, scanId: string, companies: any[], news: any[]) {
-  // Run all 3 AI analyses in parallel
-  const [analyzedContent, insightsContent, alertsContent] = await Promise.all([
-    poeRequest(`Analyze ${industry} companies. Each: threat_score(0-10), activity_level(low/medium/high), description, employee_count, stock_ticker (if publicly traded, use format like "AAPL", "MSFT", "TSE:RY" for Toronto, "EPA:BNP" for Paris etc. Use null if private).
+async function stepAnalyzeAndWrite(industry: string, scanId: string, companies: any[], news: any[], skipCompetitors?: boolean, skipAnalytics?: boolean) {
+  // Run AI analyses (skip competitors if incremental scan)
+  const promises: Promise<string>[] = []
+  
+  if (!skipCompetitors) {
+    promises.push(
+      poeRequest(`Analyze ${industry} companies. Each: threat_score(0-10), activity_level(low/medium/high), description, employee_count, stock_ticker (if publicly traded, use format like "AAPL", "MSFT", "TSE:RY" for Toronto, "EPA:BNP" for Paris etc. Use null if private).
 Companies: ${companies.map((c: any) => c.name).join(', ')}
-JSON array only: [{"name":"X","threat_score":7.5,"activity_level":"high","description":"Desc","employee_count":500,"industry":"${industry}","stock_ticker":"AAPL"}]`),
-    
+JSON array only: [{"name":"X","threat_score":7.5,"activity_level":"high","description":"Desc","employee_count":500,"industry":"${industry}","stock_ticker":"AAPL"}]`)
+    )
+  }
+  
+  promises.push(
     poeRequest(`3-4 strategic insights for ${industry}.
 Companies: ${companies.slice(0,5).map((c: any) => c.name).join(', ')}
 News: ${news.slice(0,8).map((n: any) => n.title).join('; ')}
@@ -223,11 +292,13 @@ JSON: [{"type":"threat|opportunity|trend|recommendation","title":"X","descriptio
     poeRequest(`5-7 alerts from ${industry} news.
 News: ${news.slice(0,12).map((n: any) => n.title).join('; ')}
 JSON: [{"title":"X","description":"Context","priority":"critical|attention|info","category":"funding|product|hiring|news|market"}]`)
-  ])
+  )
 
-  const analyzed = parseJsonArray(analyzedContent)
-  const insights = parseJsonArray(insightsContent)
-  const alerts = parseJsonArray(alertsContent)
+  const results = await Promise.all(promises)
+  
+  const analyzed = skipCompetitors ? [] : parseJsonArray(results.shift() || '[]')
+  const insights = parseJsonArray(results[0])
+  const alerts = parseJsonArray(results[1])
 
   // Fetch stock prices via Perplexity for public companies
   const publicCompanies = analyzed.filter((c: any) => c.stock_ticker)
@@ -262,8 +333,8 @@ JSON object with ticker as key: {"AAPL": {"price": 178.50, "currency": "USD", "c
     }
   }
 
-  // Write to Supabase
-  const insertedCompetitors = analyzed.length > 0 ? await supabasePost('competitors', 
+  // Write to Supabase (skip competitors if already copied)
+  const insertedCompetitors = !skipCompetitors && analyzed.length > 0 ? await supabasePost('competitors', 
     analyzed.map((c: any) => {
       const stockInfo = c.stock_ticker ? stockPrices[c.stock_ticker] : null
       return {
@@ -309,8 +380,31 @@ JSON object with ticker as key: {"AAPL": {"price": 178.50, "currency": "USD", "c
     }))
   ) : []
 
-  // Generate industry analytics via AI
-  const analyticsContent = await poeRequest(`Generate market analytics data for the ${industry} industry. Provide realistic estimated data points.
+  // Generate or copy industry analytics
+  let industryAnalytics = null
+  
+  if (skipAnalytics) {
+    // Copy analytics from previous scan (passed via companies parameter as special marker)
+    // Frontend should pass previousScanId in companies[0].previousScanId for this case
+    const previousScanIdForAnalytics = (companies[0] as any)?.previousScanId
+    if (previousScanIdForAnalytics) {
+      const res = await fetch(
+        `${SUPABASE_URL}/rest/v1/scans?id=eq.${previousScanIdForAnalytics}&select=industry_analytics`,
+        {
+          headers: {
+            'apikey': SUPABASE_KEY!,
+            'Authorization': `Bearer ${SUPABASE_KEY}`,
+          }
+        }
+      )
+      const previousScan = await res.json()
+      if (previousScan && previousScan.length > 0) {
+        industryAnalytics = previousScan[0].industry_analytics
+      }
+    }
+  } else {
+    // Generate fresh industry analytics via AI
+    const analyticsContent = await poeRequest(`Generate market analytics data for the ${industry} industry. Provide realistic estimated data points.
 JSON object only:
 {
   "market_size_billions": 150,
@@ -327,14 +421,14 @@ JSON object only:
 }
 Use the actual known competitor names from this list where possible: ${analyzed.slice(0,8).map((c: any) => c.name).join(', ')}`)
 
-  let industryAnalytics = null
-  try {
-    const match = analyticsContent.match(/\{[\s\S]*\}/)
-    if (match) {
-      industryAnalytics = JSON.parse(match[0].replace(/,(\s*[}\]])/g, '$1'))
+    try {
+      const match = analyticsContent.match(/\{[\s\S]*\}/)
+      if (match) {
+        industryAnalytics = JSON.parse(match[0].replace(/,(\s*[}\]])/g, '$1'))
+      }
+    } catch (e) {
+      console.error('Analytics parse error:', e)
     }
-  } catch (e) {
-    console.error('Analytics parse error:', e)
   }
 
   // Mark scan as completed
@@ -368,14 +462,14 @@ const handler: Handler = async (event: HandlerEvent, context: HandlerContext) =>
   }
 
   try {
-    const { step, industry, scanId, companies, news, companyUrl, companyName, maxCompetitors, regions } = JSON.parse(event.body || '{}')
+    const { step, industry, scanId, companies, news, companyUrl, companyName, maxCompetitors, regions, watchlist, previousScanId, skipCompetitors, skipAnalytics } = JSON.parse(event.body || '{}')
     
     if (!step) {
       return { statusCode: 400, headers: CORS, body: JSON.stringify({ error: 'step required' }) }
     }
 
-    // detect step doesn't need industry
-    if (step !== 'detect' && !industry) {
+    // detect and copy-competitors steps don't need industry
+    if (step !== 'detect' && step !== 'copy-competitors' && !industry) {
       return { statusCode: 400, headers: CORS, body: JSON.stringify({ error: 'industry required' }) }
     }
 
@@ -392,7 +486,13 @@ const handler: Handler = async (event: HandlerEvent, context: HandlerContext) =>
         result = await stepInit(industry, companyUrl, companyName)
         break
       case 'competitors':
-        result = await stepCompetitors(industry, scanId, companyUrl, maxCompetitors, regions)
+        result = await stepCompetitors(industry, scanId, companyUrl, maxCompetitors, regions, watchlist)
+        break
+      case 'copy-competitors':
+        if (!previousScanId || !scanId) {
+          return { statusCode: 400, headers: CORS, body: JSON.stringify({ error: 'previousScanId and scanId required for copy-competitors step' }) }
+        }
+        result = await stepCopyCompetitors(previousScanId, scanId)
         break
       case 'news':
         result = await stepNews(industry)
@@ -401,7 +501,7 @@ const handler: Handler = async (event: HandlerEvent, context: HandlerContext) =>
         if (!scanId || !companies || !news) {
           return { statusCode: 400, headers: CORS, body: JSON.stringify({ error: 'scanId, companies, news required for analyze step' }) }
         }
-        result = await stepAnalyzeAndWrite(industry, scanId, companies, news)
+        result = await stepAnalyzeAndWrite(industry, scanId, companies, news, skipCompetitors, skipAnalytics)
         break
       default:
         return { statusCode: 400, headers: CORS, body: JSON.stringify({ error: `Unknown step: ${step}` }) }
