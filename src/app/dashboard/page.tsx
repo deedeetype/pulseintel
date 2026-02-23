@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
 import { useScans } from '@/hooks/useScans'
@@ -27,9 +27,11 @@ export default function Dashboard() {
   const [selectedScanId, setSelectedScanId] = useState<string | undefined>(undefined)
   
   // Auto-select most recent scan
-  if (!selectedScanId && scans.length > 0 && !loadingScans) {
-    setSelectedScanId(scans[0].id)
-  }
+  useEffect(() => {
+    if (!selectedScanId && scans.length > 0 && !loadingScans) {
+      setSelectedScanId(scans[0].id)
+    }
+  }, [scans, loadingScans, selectedScanId])
   
   // Fetch real data from Supabase filtered by selected scan
   const { competitors, loading: loadingCompetitors } = useCompetitors(selectedScanId)
@@ -151,7 +153,7 @@ export default function Dashboard() {
             { id: 'analytics', label: 'Industry Analytics', icon: '📊' },
             { id: 'alerts', label: 'Alerts', icon: '🔔', badge: criticalAlertsCount },
             { id: 'insights', label: 'AI Insights', icon: '🤖' },
-            { id: 'reports', label: 'Reports', icon: '📄' },
+            { id: 'myscans', label: 'My Scans', icon: '🗂️' },
             { id: 'settings', label: 'Settings', icon: '⚙️' },
           ].map((item) => (
             <button
@@ -205,11 +207,11 @@ export default function Dashboard() {
             
             {/* Scan Selector + New Scan Button */}
             <div className="flex items-center gap-3">
-              {!loadingScans && scans.length > 0 && (
+              {scans.length > 0 && (
                 <>
                   <label className="text-sm text-slate-400">Viewing:</label>
                   <select
-                    value={selectedScanId}
+                    value={selectedScanId || ''}
                     onChange={(e) => setSelectedScanId(e.target.value)}
                     className="bg-slate-800 text-white px-4 py-2 rounded-lg border border-slate-700 focus:border-indigo-500 focus:outline-none"
                   >
@@ -414,7 +416,7 @@ export default function Dashboard() {
           <NewsFeedView scanId={selectedScanId} />
         )}
 
-        {activeTab === 'reports' && (
+        {activeTab === 'myscans' && (
           <ScanHistoryView 
             scans={scans} 
             loading={loadingScans} 
