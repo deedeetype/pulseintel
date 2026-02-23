@@ -271,7 +271,7 @@ export default async (req) => {
 
   // POST = start scan
   if (req.method === 'POST') {
-    const { industry } = await req.json()
+    const { industry, scanId: existingScanId } = await req.json()
     
     if (!industry) {
       return new Response(JSON.stringify({ error: 'Industry is required' }), { status: 400, headers: corsHeaders })
@@ -281,15 +281,22 @@ export default async (req) => {
     const startTime = Date.now()
 
     try {
-      // 1. Create scan record
-      const [scan] = await supabaseRequest('scans', 'POST', {
-        user_id: DEMO_USER_ID,
-        industry,
-        status: 'running'
-      })
+      // 1. Use existing scan record or create new one
+      let scanId = existingScanId
       
-      const scanId = scan.id
-      console.log(`✓ Scan created: ${scanId}`)
+      if (scanId) {
+        // Update existing scan to running
+        await supabaseRequest(`scans?id=eq.${scanId}`, 'PATCH', { status: 'running' })
+        console.log(`✓ Using existing scan: ${scanId}`)
+      } else {
+        const [scan] = await supabaseRequest('scans', 'POST', {
+          user_id: DEMO_USER_ID,
+          industry,
+          status: 'running'
+        })
+        scanId = scan.id
+        console.log(`✓ Scan created: ${scanId}`)
+      }
 
       // 2. Phase 1: Data Collection (parallel)
       console.log(`\n📊 PHASE 1: Data Collection\n`)
@@ -421,6 +428,5 @@ export default async (req) => {
   return new Response(JSON.stringify({ error: 'Method not allowed' }), { status: 405, headers: corsHeaders })
 }
 
-export const config = {
-  path: '/.netlify/functions/run-scan'
-}
+// Background function - no custom path config needed
+// Netlify auto-routes to /.netlify/functions/run-scan-background

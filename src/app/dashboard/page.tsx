@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
+import { supabase } from '@/lib/supabase'
 import { useScans } from '@/hooks/useScans'
 import { useCompetitors } from '@/hooks/useCompetitors'
 import { useAlerts } from '@/hooks/useAlerts'
@@ -61,10 +62,11 @@ export default function Dashboard() {
   // Run scan function
   async function handleRunScan() {
     setIsScanning(true)
-    setScanProgress('Starting scan... This takes about 40-60 seconds.')
+    setScanProgress('Starting scan...')
     
     try {
-      const response = await fetch('/.netlify/functions/run-scan', {
+      // 1. Call start-scan (returns immediately with scanId)
+      const response = await fetch('/.netlify/functions/start-scan', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ industry: scanIndustry })
@@ -76,23 +78,59 @@ export default function Dashboard() {
         throw new Error(data.error || 'Scan failed to start')
       }
       
-      // Scan completed (Netlify function does everything synchronously)
-      setScanProgress(`✅ Done! Found ${data.results?.competitors || 0} competitors, ${data.results?.alerts || 0} alerts, ${data.results?.insights || 0} insights`)
+      const scanId = data.scanId
+      setScanProgress('🔍 Collecting competitors and news... (~40-60 seconds)')
       
-      // Refresh scans list
-      await refetchScans()
+      // 2. Poll Supabase for scan completion
+      const pollInterval = setInterval(async () => {
+        try {
+          const { data: scanData } = await supabase
+            .from('scans')
+            .select('*')
+            .eq('id', scanId)
+            .single()
+          
+          if (scanData?.status === 'completed') {
+            clearInterval(pollInterval)
+            setScanProgress(`✅ Done! Found ${scanData.competitors_count} competitors, ${scanData.alerts_count} alerts, ${scanData.insights_count} insights`)
+            
+            await refetchScans()
+            setSelectedScanId(scanId)
+            
+            setTimeout(() => {
+              setIsScanning(false)
+              setShowScanModal(false)
+              setScanProgress('')
+            }, 2000)
+          } else if (scanData?.status === 'failed') {
+            clearInterval(pollInterval)
+            setScanProgress('❌ Scan failed: ' + (scanData.error_message || 'Unknown error'))
+            setTimeout(() => setIsScanning(false), 3000)
+          } else if (scanData?.status === 'running') {
+            const counts = []
+            if (scanData.competitors_count > 0) counts.push(`${scanData.competitors_count} competitors`)
+            if (scanData.alerts_count > 0) counts.push(`${scanData.alerts_count} alerts`)
+            if (counts.length > 0) {
+              setScanProgress(`🔍 Found ${counts.join(', ')}... still analyzing`)
+            }
+          }
+        } catch (pollError) {
+          // Ignore poll errors, keep trying
+        }
+      }, 4000)
       
-      // Select the new scan
-      if (data.scanId) {
-        setSelectedScanId(data.scanId)
-      }
-      
-      // Close modal after a moment
+      // Timeout after 2 minutes
       setTimeout(() => {
-        setIsScanning(false)
-        setShowScanModal(false)
-        setScanProgress('')
-      }, 2000)
+        clearInterval(pollInterval)
+        if (isScanning) {
+          setScanProgress('⏱️ Scan is taking longer than expected. Check back shortly.')
+          setTimeout(() => {
+            setIsScanning(false)
+            setShowScanModal(false)
+            setScanProgress('')
+          }, 3000)
+        }
+      }, 120000)
       
     } catch (error: any) {
       setScanProgress('❌ Error: ' + error.message)
