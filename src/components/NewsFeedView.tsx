@@ -127,7 +127,9 @@ export default function NewsFeedView({ scanId }: Props) {
                 )}
                 <div className="flex items-center gap-3 mt-2">
                   {item.source && <span className="text-xs text-indigo-400">{item.source}</span>}
-                  <span className="text-xs text-slate-500">{timeAgo(item.created_at)}</span>
+                  <span className="text-xs text-slate-500">
+                    {new Date(item.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                  </span>
                   {item.tags && item.tags.slice(0, 3).map((tag, i) => (
                     <span key={i} className="text-xs text-slate-500">#{tag}</span>
                   ))}

@@ -88,15 +88,37 @@ async function stepInit(industry: string) {
 }
 
 // Step 1: Find competitors via Perplexity
-async function stepCompetitors(industry: string, scanId: string) {
+async function stepCompetitors(industry: string, scanId: string, companyUrl?: string) {
+  let prompt: string
+  
+  if (companyUrl) {
+    // Targeted scan: find direct competitors of this specific company
+    prompt = `I run a company with this website: ${companyUrl}
+We operate in the ${industry} industry.
+
+Find our most relevant direct competitors (companies offering similar products/services to similar customers). 
+Only include truly relevant competitors — could be 5, 8, or 10 depending on the market. Quality over quantity.
+
+For each competitor provide:
+- name
+- domain (website)  
+- description (1-2 sentences explaining what they do and why they're a competitor)
+- position (e.g. "Direct Competitor", "Market Leader", "Emerging Threat", "Niche Player")
+
+JSON array: [{name, domain, description, position}]`
+  } else {
+    // General industry scan
+    prompt = `List the top 10-15 most significant companies in the ${industry} industry (2025-2026). Include market leaders and notable startups. JSON array: [{name, domain, description (1-2 sentences), position}]`
+  }
+
   const res = await fetch('https://api.perplexity.ai/chat/completions', {
     method: 'POST',
     headers: { 'Authorization': `Bearer ${PERPLEXITY_KEY}`, 'Content-Type': 'application/json' },
     body: JSON.stringify({
       model: 'sonar-pro',
       messages: [
-        { role: 'system', content: 'Business intelligence analyst. Respond with valid JSON only.' },
-        { role: 'user', content: `List top 15 companies in ${industry} (2025-2026). JSON array: [{name, domain, description (1-2 sentences), position}]` }
+        { role: 'system', content: 'Business intelligence analyst specializing in competitive analysis. Respond with valid JSON only. Be selective — only include truly relevant competitors.' },
+        { role: 'user', content: prompt }
       ],
       temperature: 0.3, max_tokens: 2000
     })
@@ -223,7 +245,7 @@ const handler: Handler = async (event: HandlerEvent, context: HandlerContext) =>
   }
 
   try {
-    const { step, industry, scanId, companies, news } = JSON.parse(event.body || '{}')
+    const { step, industry, scanId, companies, news, companyUrl } = JSON.parse(event.body || '{}')
     
     if (!step || !industry) {
       return { statusCode: 400, headers: CORS, body: JSON.stringify({ error: 'step and industry required' }) }
@@ -236,7 +258,7 @@ const handler: Handler = async (event: HandlerEvent, context: HandlerContext) =>
         result = await stepInit(industry)
         break
       case 'competitors':
-        result = await stepCompetitors(industry, scanId)
+        result = await stepCompetitors(industry, scanId, companyUrl)
         break
       case 'news':
         result = await stepNews(industry)

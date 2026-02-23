@@ -150,6 +150,11 @@ export default function CompetitorsView({ competitors, loading }: Props) {
                 <div className="text-white font-medium">{comp.name}</div>
                 <div className="text-sm text-slate-400">
                   {comp.domain || comp.industry || 'Unknown'}
+                  {comp.last_activity_date && (
+                    <span className="ml-2 text-xs text-slate-500">
+                      · Scanned {new Date(comp.last_activity_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                    </span>
+                  )}
                 </div>
               </div>
             </div>

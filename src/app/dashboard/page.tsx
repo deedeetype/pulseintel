@@ -17,6 +17,7 @@ export default function Dashboard() {
   const [activeTab, setActiveTab] = useState('overview')
   const [showScanModal, setShowScanModal] = useState(false)
   const [scanIndustry, setScanIndustry] = useState('Financial Services')
+  const [companyUrl, setCompanyUrl] = useState('')
   const [isScanning, setIsScanning] = useState(false)
   const [scanProgress, setScanProgress] = useState('')
   
@@ -87,7 +88,7 @@ export default function Dashboard() {
       
       // Step 1: Find competitors via Perplexity
       setScanProgress('🔍 Finding competitors via AI...')
-      const { companies, count: compCount } = await callStep('competitors', { industry: scanIndustry, scanId })
+      const { companies, count: compCount } = await callStep('competitors', { industry: scanIndustry, scanId, companyUrl: companyUrl || undefined })
       
       // Step 2: Collect news via Perplexity
       setScanProgress(`✓ Found ${compCount} competitors. 📰 Collecting news...`)
@@ -239,18 +240,21 @@ export default function Dashboard() {
             {/* KPI Cards - Clickable */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
               {[
-                { label: 'Active Competitors', value: loadingCompetitors ? '...' : activeCompetitorsCount.toString(), change: 'Tracked', trend: 'neutral', tab: 'competitors' },
-                { label: 'Critical Alerts', value: loadingAlerts ? '...' : criticalAlertsCount.toString(), change: 'Requires attention', trend: criticalAlertsCount > 0 ? 'alert' : 'neutral', tab: 'alerts' },
-                { label: 'New Insights', value: loadingInsights ? '...' : newInsightsCount.toString(), change: 'Generated today', trend: 'up', tab: 'insights' },
-                { label: 'Avg Threat Score', value: loadingCompetitors ? '...' : avgMarketScore, change: 'Market average', trend: 'neutral', tab: 'competitors' },
+                { label: 'Active Competitors', value: loadingCompetitors ? '...' : activeCompetitorsCount.toString(), change: 'Tracked', trend: 'neutral', tab: 'competitors', tooltip: 'Total number of competitors identified and tracked in this scan. Click to see full list with threat scores and activity levels.' },
+                { label: 'Critical Alerts', value: loadingAlerts ? '...' : criticalAlertsCount.toString(), change: 'Requires attention', trend: criticalAlertsCount > 0 ? 'alert' : 'neutral', tab: 'alerts', tooltip: 'High-priority alerts requiring immediate attention — major competitor moves, funding rounds, or market shifts.' },
+                { label: 'New Insights', value: loadingInsights ? '...' : newInsightsCount.toString(), change: 'Generated today', trend: 'up', tab: 'insights', tooltip: 'AI-generated strategic insights including threats, opportunities, and trends detected from competitor data and news analysis.' },
+                { label: 'Avg Threat Score', value: loadingCompetitors ? '...' : avgMarketScore, change: 'Market average', trend: 'neutral', tab: 'competitors', tooltip: 'Average threat score across all tracked competitors (0-10). Higher scores indicate stronger competitive pressure in this market.' },
               ].map((kpi) => (
                 <div
                   key={kpi.label}
                   onClick={() => setActiveTab(kpi.tab)}
-                  className="bg-slate-900 border border-slate-800 rounded-xl p-6 hover:border-indigo-500/50 transition cursor-pointer group"
+                  className="bg-slate-900 border border-slate-800 rounded-xl p-6 hover:border-indigo-500/50 transition cursor-pointer group relative"
                 >
                   <div className="flex items-start justify-between mb-4">
-                    <h3 className="text-sm font-medium text-slate-400">{kpi.label}</h3>
+                    <h3 className="text-sm font-medium text-slate-400 flex items-center gap-1">
+                      {kpi.label}
+                      <span className="inline-block w-4 h-4 text-center text-xs text-slate-500 bg-slate-800 rounded-full leading-4 cursor-help">?</span>
+                    </h3>
                     <span className={`text-xs px-2 py-1 rounded-full ${
                       kpi.trend === 'up' ? 'bg-green-500/10 text-green-500'
                       : kpi.trend === 'alert' ? 'bg-red-500/10 text-red-500'
@@ -259,6 +263,11 @@ export default function Dashboard() {
                   </div>
                   <div className="text-4xl font-bold text-white mb-2">{kpi.value}</div>
                   <div className="text-xs text-slate-500 opacity-0 group-hover:opacity-100 transition">Click to view details →</div>
+                  {/* Tooltip */}
+                  <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-64 p-3 bg-slate-800 border border-slate-700 rounded-lg text-xs text-slate-300 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10 shadow-lg">
+                    {kpi.tooltip}
+                    <div className="absolute top-full left-1/2 -translate-x-1/2 w-2 h-2 bg-slate-800 border-r border-b border-slate-700 transform rotate-45 -mt-1"></div>
+                  </div>
                 </div>
               ))}
             </div>
@@ -419,8 +428,23 @@ export default function Dashboard() {
           <div className="bg-slate-900 border border-slate-800 rounded-xl p-8 max-w-md w-full mx-4">
             <h2 className="text-2xl font-bold text-white mb-4">🔍 New Industry Scan</h2>
             <p className="text-slate-400 mb-6">
-              Select an industry to scan for competitors, news, and insights.
+              Select an industry and optionally provide your company website for more targeted competitor analysis.
             </p>
+
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-slate-400 mb-2">
+                Your Company Website <span className="text-slate-600">(optional)</span>
+              </label>
+              <input
+                type="url"
+                value={companyUrl}
+                onChange={(e) => setCompanyUrl(e.target.value)}
+                placeholder="https://yourcompany.com"
+                disabled={isScanning}
+                className="w-full bg-slate-800 text-white px-4 py-3 rounded-lg border border-slate-700 focus:border-indigo-500 focus:outline-none disabled:opacity-50 placeholder-slate-600"
+              />
+              <p className="text-xs text-slate-500 mt-1">Providing your website helps AI find your most relevant direct competitors.</p>
+            </div>
 
             <div className="mb-6">
               <label className="block text-sm font-medium text-slate-400 mb-2">
@@ -442,6 +466,11 @@ export default function Dashboard() {
                 <option value="AI/ML">AI/ML</option>
                 <option value="Gaming">Gaming</option>
                 <option value="EdTech">EdTech</option>
+                <option value="Real Estate">Real Estate</option>
+                <option value="Logistics">Logistics</option>
+                <option value="Energy">Energy</option>
+                <option value="Retail">Retail</option>
+                <option value="Legal Tech">Legal Tech</option>
               </select>
             </div>
 
