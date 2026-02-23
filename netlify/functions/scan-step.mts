@@ -85,7 +85,7 @@ async function stepDetect(companyUrl: string) {
     body: JSON.stringify({
       model: 'sonar-pro',
       messages: [
-        { role: 'system', content: 'Business analyst. Respond with valid JSON only. No markdown.' },
+        { role: 'system', content: 'Business analyst. Respond with valid JSON only. No markdown, no code fences.' },
         { role: 'user', content: `Analyze this company website: ${companyUrl}
 Identify the company name and its primary industry.
 JSON: {"company_name": "X", "industry": "Y", "description": "1-2 sentence description of what the company does"}
@@ -96,7 +96,14 @@ If none fit perfectly, use the most accurate industry label.` }
     })
   })
   const data = await res.json()
-  const content = data.choices[0].message.content
+  console.log('Detect raw response:', JSON.stringify(data).slice(0, 500))
+  
+  const content = data?.choices?.[0]?.message?.content
+  if (!content) {
+    console.error('No content in detect response:', JSON.stringify(data).slice(0, 300))
+    throw new Error('Failed to detect industry from URL. API returned no content.')
+  }
+  
   try {
     const match = content.match(/\{[\s\S]*\}/)
     if (match) {
@@ -108,7 +115,7 @@ If none fit perfectly, use the most accurate industry label.` }
       }
     }
   } catch (e) {
-    console.error('Detect parse error:', e)
+    console.error('Detect parse error:', e, 'content:', content)
   }
   return { company_name: 'Unknown', industry: 'Technology', description: '' }
 }
