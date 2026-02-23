@@ -2,77 +2,118 @@
 @tailwind components;
 @tailwind utilities;
 
+:root {
+  --bg-primary: #0f172a;    /* slate-900 */
+  --bg-secondary: #020617;  /* slate-950 */
+  --bg-card: #0f172a;       /* slate-900 */
+  --bg-input: #1e293b;      /* slate-800 */
+  --border-primary: #1e293b; /* slate-800 */
+  --border-secondary: #334155; /* slate-700 */
+  --text-primary: #ffffff;
+  --text-secondary: #94a3b8; /* slate-400 */
+  --text-muted: #64748b;    /* slate-500 */
+  --text-body: #cbd5e1;     /* slate-300 */
+}
+
+.light-theme {
+  --bg-primary: #ffffff;
+  --bg-secondary: #f8fafc;   /* slate-50 */
+  --bg-card: #ffffff;
+  --bg-input: #f1f5f9;       /* slate-100 */
+  --border-primary: #e2e8f0; /* slate-200 */
+  --border-secondary: #cbd5e1; /* slate-300 */
+  --text-primary: #0f172a;   /* slate-900 */
+  --text-secondary: #64748b; /* slate-500 */
+  --text-muted: #94a3b8;    /* slate-400 */
+  --text-body: #475569;     /* slate-600 */
+}
+
 @layer base {
   body {
-    @apply bg-slate-900 text-white;
+    background-color: var(--bg-secondary);
+    color: var(--text-primary);
   }
+}
 
-  /* Light theme overrides */
-  .light-theme body,
-  .light-theme {
-    @apply bg-slate-50 text-slate-900;
-  }
+/* Light theme utility overrides using specificity */
+.light-theme .min-h-screen.bg-slate-950 {
+  background-color: var(--bg-secondary) !important;
+}
 
-  .light-theme .bg-slate-950 {
-    @apply !bg-slate-50;
-  }
-  .light-theme .bg-slate-900 {
-    @apply !bg-white;
-  }
-  .light-theme .bg-slate-800 {
-    @apply !bg-slate-100;
-  }
-  .light-theme .bg-slate-800\/50 {
-    @apply !bg-slate-100;
-  }
-  .light-theme .border-slate-800 {
-    @apply !border-slate-200;
-  }
-  .light-theme .border-slate-700 {
-    @apply !border-slate-300;
-  }
-  .light-theme .text-white {
-    @apply !text-slate-900;
-  }
-  .light-theme .text-slate-400 {
-    @apply !text-slate-500;
-  }
-  .light-theme .text-slate-300 {
-    @apply !text-slate-600;
-  }
-  .light-theme .text-slate-500 {
-    @apply !text-slate-400;
-  }
+/* Sidebar */
+.light-theme aside {
+  background-color: var(--bg-primary) !important;
+  border-color: var(--border-primary) !important;
+}
 
-  /* Light theme sidebar */
-  .light-theme aside.bg-slate-900 {
-    @apply !bg-white !border-slate-200;
-  }
-  .light-theme .hover\:bg-slate-800:hover {
-    @apply !bg-slate-100;
-  }
-  .light-theme .hover\:text-white:hover {
-    @apply !text-slate-900;
-  }
+/* Cards and panels */
+.light-theme .bg-slate-900 {
+  background-color: var(--bg-card) !important;
+}
+.light-theme .bg-slate-800,
+.light-theme .bg-slate-800\/50 {
+  background-color: var(--bg-input) !important;
+}
 
-  /* Light theme inputs */
-  .light-theme select,
-  .light-theme input[type="text"],
-  .light-theme input[type="email"],
-  .light-theme input[type="url"] {
-    @apply !bg-white !text-slate-900 !border-slate-300;
-  }
-  .light-theme select option {
-    @apply !bg-white !text-slate-900;
-  }
+/* Borders */
+.light-theme .border-slate-800 {
+  border-color: var(--border-primary) !important;
+}
+.light-theme .border-slate-700 {
+  border-color: var(--border-secondary) !important;
+}
 
-  /* Light theme modal */
-  .light-theme .backdrop-blur-sm {
-    @apply !bg-black/30;
-  }
+/* Text */
+.light-theme .text-white {
+  color: var(--text-primary) !important;
+}
+.light-theme .text-slate-400 {
+  color: var(--text-secondary) !important;
+}
+.light-theme .text-slate-300 {
+  color: var(--text-body) !important;
+}
+.light-theme .text-slate-500 {
+  color: var(--text-muted) !important;
+}
 
-  /* Keep gradient text visible */
-  .light-theme .bg-gradient-to-r.from-indigo-400.to-cyan-400 {
-    @apply from-indigo-600 to-cyan-600;
-  }
+/* Inputs & selects */
+.light-theme select,
+.light-theme input[type="text"],
+.light-theme input[type="email"],
+.light-theme input[type="url"],
+.light-theme input[type="password"] {
+  background-color: var(--bg-input) !important;
+  color: var(--text-primary) !important;
+  border-color: var(--border-secondary) !important;
+}
+.light-theme select option {
+  background-color: var(--bg-primary) !important;
+  color: var(--text-primary) !important;
+}
+
+/* Hover states */
+.light-theme .hover\:bg-slate-800:hover {
+  background-color: var(--bg-input) !important;
+}
+.light-theme .hover\:text-white:hover {
+  color: var(--text-primary) !important;
+}
+.light-theme .hover\:border-slate-700:hover {
+  border-color: var(--border-secondary) !important;
+}
+
+/* Modal backdrop */
+.light-theme .bg-black\/50 {
+  background-color: rgba(0, 0, 0, 0.3) !important;
+}
+
+/* Placeholder text */
+.light-theme .placeholder-slate-600::placeholder {
+  color: var(--text-muted) !important;
+}
+
+/* Bottom border in sidebar */
+.light-theme .border-t.border-slate-800 {
+  border-color: var(--border-primary) !important;
 }
