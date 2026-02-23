@@ -12,6 +12,7 @@ interface NewsItem {
   relevance_score: number | null
   sentiment: string | null
   tags: string[] | null
+  published_at: string | null
   created_at: string
 }
 
@@ -45,7 +46,13 @@ export default function NewsFeedView({ scanId }: Props) {
     return styles[sentiment || 'neutral'] || styles.neutral
   }
 
-  const timeAgo = (date: string) => {
+  const formatDate = (item: NewsItem) => {
+    const date = item.published_at || item.created_at
+    return new Date(date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+  }
+
+  const timeAgo = (item: NewsItem) => {
+    const date = item.published_at || item.created_at
     const hours = Math.floor((new Date().getTime() - new Date(date).getTime()) / 3600000)
     if (hours < 1) return 'just now'
     if (hours < 24) return `${hours}h ago`
@@ -73,7 +80,7 @@ export default function NewsFeedView({ scanId }: Props) {
                 {selectedNews.source && (
                   <span className="text-sm text-indigo-400">{selectedNews.source}</span>
                 )}
-                <span className="text-xs text-slate-500">{timeAgo(selectedNews.created_at)}</span>
+                <span className="text-xs text-slate-500">{timeAgo(selectedNews)}</span>
                 {selectedNews.sentiment && (
                   <span className={`px-2 py-0.5 rounded-full text-xs ${sentimentStyle(selectedNews.sentiment)}`}>
                     {selectedNews.sentiment}
@@ -127,9 +134,7 @@ export default function NewsFeedView({ scanId }: Props) {
                 )}
                 <div className="flex items-center gap-3 mt-2">
                   {item.source && <span className="text-xs text-indigo-400">{item.source}</span>}
-                  <span className="text-xs text-slate-500">
-                    {new Date(item.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
-                  </span>
+                  <span className="text-xs text-slate-500">{formatDate(item)}</span>
                   {item.tags && item.tags.slice(0, 3).map((tag, i) => (
                     <span key={i} className="text-xs text-slate-500">#{tag}</span>
                   ))}

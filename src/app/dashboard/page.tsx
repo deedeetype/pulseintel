@@ -21,6 +21,8 @@ export default function Dashboard() {
   const [companyUrl, setCompanyUrl] = useState('')
   const [isScanning, setIsScanning] = useState(false)
   const [scanProgress, setScanProgress] = useState('')
+  const [initialAlertId, setInitialAlertId] = useState<string | null>(null)
+  const [initialCompetitorId, setInitialCompetitorId] = useState<string | null>(null)
   
   // Fetch scans first
   const { scans, loading: loadingScans, refetch: refetchScans } = useScans(10)
@@ -151,7 +153,7 @@ export default function Dashboard() {
             { id: 'competitors', label: 'Competitors', icon: '🎯' },
             { id: 'news', label: 'News Feed', icon: '📰' },
             { id: 'analytics', label: 'Industry Analytics', icon: '📊' },
-            { id: 'alerts', label: 'Alerts', icon: '🔔', badge: criticalAlertsCount },
+            { id: 'alerts', label: 'Alerts', icon: '🔔', badge: alerts.filter(a => !a.read).length },
             { id: 'insights', label: 'AI Insights', icon: '🤖' },
             { id: 'myscans', label: 'My Scans', icon: '🗂️' },
             { id: 'settings', label: 'Settings', icon: '⚙️' },
@@ -300,7 +302,7 @@ export default function Dashboard() {
                 ) : (
                   <div className="space-y-3">
                     {alerts.map((alert) => (
-                      <div key={alert.id} onClick={() => { setActiveTab('alerts'); markAsRead(alert.id) }}
+                      <div key={alert.id} onClick={() => { setInitialAlertId(alert.id); setActiveTab('alerts'); markAsRead(alert.id) }}
                         className="flex items-start gap-3 p-3 bg-slate-800/50 rounded-lg hover:bg-slate-800 transition cursor-pointer">
                         <div className={`w-2 h-2 rounded-full mt-2 ${
                           alert.priority === 'critical' ? 'bg-red-500'
@@ -402,7 +404,7 @@ export default function Dashboard() {
         )}
 
         {activeTab === 'alerts' && (
-          <AlertsView alerts={alerts} loading={loadingAlerts} markAsRead={markAsRead} />
+          <AlertsView alerts={alerts} loading={loadingAlerts} markAsRead={markAsRead} initialAlertId={initialAlertId} />
         )}
 
         {activeTab === 'insights' && (

@@ -76,103 +76,103 @@ export default function CompetitorsView({ competitors, loading }: Props) {
         </div>
       </div>
 
-      {/* Detail Panel */}
-      {selectedCompetitor && (
-        <div className="bg-slate-900 border border-indigo-500/50 rounded-xl p-6 mb-6">
-          <div className="flex items-start justify-between">
-            <div className="flex items-center gap-4">
-              <div className="w-14 h-14 bg-gradient-to-br from-indigo-500 to-purple-500 rounded-xl flex items-center justify-center text-white text-xl font-bold">
-                {selectedCompetitor.name[0]}
+      {/* List + Detail Side Panel */}
+      <div className="flex gap-6">
+        {/* Competitors List */}
+        <div className={`grid gap-3 ${selectedCompetitor ? 'flex-1 min-w-0' : 'w-full'}`}>
+          {filtered.map((comp) => (
+            <div
+              key={comp.id}
+              onClick={() => setSelectedCompetitor(selectedCompetitor?.id === comp.id ? null : comp)}
+              className={`flex items-center justify-between p-4 rounded-xl border transition cursor-pointer ${
+                selectedCompetitor?.id === comp.id
+                  ? 'bg-slate-800 border-indigo-500/50'
+                  : 'bg-slate-900 border-slate-800 hover:border-slate-700'
+              }`}
+            >
+              <div className="flex items-center gap-4">
+                <div className="w-10 h-10 bg-gradient-to-br from-indigo-500 to-purple-500 rounded-lg flex items-center justify-center text-white font-bold">
+                  {comp.name[0]}
+                </div>
+                <div>
+                  <div className="text-white font-medium">{comp.name}</div>
+                  <div className="text-sm text-slate-400">
+                    {comp.domain || comp.industry || 'Unknown'}
+                  </div>
+                </div>
               </div>
-              <div>
-                <h3 className="text-xl font-bold text-white">{selectedCompetitor.name}</h3>
-                {selectedCompetitor.domain && (
-                  <a href={`https://${selectedCompetitor.domain}`} target="_blank" rel="noopener noreferrer" className="text-indigo-400 hover:text-indigo-300 text-sm">
-                    {selectedCompetitor.domain} ↗
-                  </a>
-                )}
-              </div>
-            </div>
-            <button onClick={() => setSelectedCompetitor(null)} className="text-slate-400 hover:text-white text-xl">✕</button>
-          </div>
-          
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-6">
-            <div className="bg-slate-800/50 rounded-lg p-3">
-              <div className="text-xs text-slate-400 mb-1">Threat Score</div>
-              <div className={`text-2xl font-bold ${threatColor(selectedCompetitor.threat_score)}`}>
-                {selectedCompetitor.threat_score?.toFixed(1) || 'N/A'}
-              </div>
-            </div>
-            <div className="bg-slate-800/50 rounded-lg p-3">
-              <div className="text-xs text-slate-400 mb-1">Activity</div>
-              <span className={`inline-block px-2 py-1 rounded-full text-sm border ${activityBadge(selectedCompetitor.activity_level)}`}>
-                {selectedCompetitor.activity_level || 'Unknown'}
-              </span>
-            </div>
-            <div className="bg-slate-800/50 rounded-lg p-3">
-              <div className="text-xs text-slate-400 mb-1">Employees</div>
-              <div className="text-lg font-bold text-white">
-                {selectedCompetitor.employee_count ? selectedCompetitor.employee_count.toLocaleString() : 'N/A'}
+              <div className="flex items-center gap-6">
+                <span className={`px-2 py-1 rounded-full text-xs border ${activityBadge(comp.activity_level)}`}>
+                  {comp.activity_level || 'N/A'}
+                </span>
+                <div className="text-right w-16">
+                  <div className={`text-lg font-bold ${threatColor(comp.threat_score)}`}>
+                    {comp.threat_score?.toFixed(1) || 'N/A'}
+                  </div>
+                  <div className="text-xs text-slate-500">Threat</div>
+                </div>
               </div>
             </div>
-            <div className="bg-slate-800/50 rounded-lg p-3">
-              <div className="text-xs text-slate-400 mb-1">Industry</div>
-              <div className="text-sm text-white">{selectedCompetitor.industry || 'N/A'}</div>
-            </div>
-          </div>
-
-          {selectedCompetitor.description && (
-            <div className="mt-4">
-              <div className="text-xs text-slate-400 mb-1">Description</div>
-              <p className="text-slate-300 text-sm">{selectedCompetitor.description}</p>
-            </div>
+          ))}
+          {filtered.length === 0 && (
+            <div className="text-slate-400 text-center py-12">No competitors found</div>
           )}
         </div>
-      )}
 
-      {/* Competitors Grid */}
-      <div className="grid gap-3">
-        {filtered.map((comp) => (
-          <div
-            key={comp.id}
-            onClick={() => setSelectedCompetitor(comp)}
-            className={`flex items-center justify-between p-4 rounded-xl border transition cursor-pointer ${
-              selectedCompetitor?.id === comp.id
-                ? 'bg-slate-800 border-indigo-500/50'
-                : 'bg-slate-900 border-slate-800 hover:border-slate-700'
-            }`}
-          >
-            <div className="flex items-center gap-4">
-              <div className="w-10 h-10 bg-gradient-to-br from-indigo-500 to-purple-500 rounded-lg flex items-center justify-center text-white font-bold">
-                {comp.name[0]}
+        {/* Detail Side Panel — sticky */}
+        {selectedCompetitor && (
+          <div className="w-[380px] flex-shrink-0">
+            <div className="sticky top-8 bg-slate-900 border border-indigo-500/50 rounded-xl p-6">
+              <div className="flex items-start justify-between mb-4">
+                <div className="flex items-center gap-3">
+                  <div className="w-12 h-12 bg-gradient-to-br from-indigo-500 to-purple-500 rounded-xl flex items-center justify-center text-white text-lg font-bold">
+                    {selectedCompetitor.name[0]}
+                  </div>
+                  <div>
+                    <h3 className="text-lg font-bold text-white">{selectedCompetitor.name}</h3>
+                    {selectedCompetitor.domain && (
+                      <a href={`https://${selectedCompetitor.domain}`} target="_blank" rel="noopener noreferrer" className="text-indigo-400 hover:text-indigo-300 text-xs">
+                        {selectedCompetitor.domain} ↗
+                      </a>
+                    )}
+                  </div>
+                </div>
+                <button onClick={() => setSelectedCompetitor(null)} className="text-slate-400 hover:text-white">✕</button>
               </div>
-              <div>
-                <div className="text-white font-medium">{comp.name}</div>
-                <div className="text-sm text-slate-400">
-                  {comp.domain || comp.industry || 'Unknown'}
-                  {comp.last_activity_date && (
-                    <span className="ml-2 text-xs text-slate-500">
-                      · Scanned {new Date(comp.last_activity_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
-                    </span>
-                  )}
+              
+              <div className="grid grid-cols-2 gap-3 mb-4">
+                <div className="bg-slate-800/50 rounded-lg p-3">
+                  <div className="text-xs text-slate-400 mb-1">Threat Score</div>
+                  <div className={`text-xl font-bold ${threatColor(selectedCompetitor.threat_score)}`}>
+                    {selectedCompetitor.threat_score?.toFixed(1) || 'N/A'}
+                  </div>
+                </div>
+                <div className="bg-slate-800/50 rounded-lg p-3">
+                  <div className="text-xs text-slate-400 mb-1">Activity</div>
+                  <span className={`inline-block px-2 py-1 rounded-full text-xs border ${activityBadge(selectedCompetitor.activity_level)}`}>
+                    {selectedCompetitor.activity_level || 'Unknown'}
+                  </span>
+                </div>
+                <div className="bg-slate-800/50 rounded-lg p-3">
+                  <div className="text-xs text-slate-400 mb-1">Employees</div>
+                  <div className="text-lg font-bold text-white">
+                    {selectedCompetitor.employee_count ? selectedCompetitor.employee_count.toLocaleString() : 'N/A'}
+                  </div>
+                </div>
+                <div className="bg-slate-800/50 rounded-lg p-3">
+                  <div className="text-xs text-slate-400 mb-1">Industry</div>
+                  <div className="text-xs text-white">{selectedCompetitor.industry || 'N/A'}</div>
                 </div>
               </div>
-            </div>
-            <div className="flex items-center gap-6">
-              <span className={`px-2 py-1 rounded-full text-xs border ${activityBadge(comp.activity_level)}`}>
-                {comp.activity_level || 'N/A'}
-              </span>
-              <div className="text-right w-16">
-                <div className={`text-lg font-bold ${threatColor(comp.threat_score)}`}>
-                  {comp.threat_score?.toFixed(1) || 'N/A'}
+
+              {selectedCompetitor.description && (
+                <div>
+                  <div className="text-xs text-slate-400 mb-1">Description</div>
+                  <p className="text-slate-300 text-sm leading-relaxed">{selectedCompetitor.description}</p>
                 </div>
-                <div className="text-xs text-slate-500">Threat</div>
-              </div>
+              )}
             </div>
           </div>
-        ))}
-        {filtered.length === 0 && (
-          <div className="text-slate-400 text-center py-12">No competitors found</div>
         )}
       </div>
     </div>

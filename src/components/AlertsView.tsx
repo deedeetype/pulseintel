@@ -1,16 +1,33 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { type Alert } from '@/lib/supabase'
 
 interface Props {
   alerts: Alert[]
   loading: boolean
   markAsRead: (id: string) => void
+  initialAlertId?: string | null
 }
 
-export default function AlertsView({ alerts, loading, markAsRead }: Props) {
+export default function AlertsView({ alerts, loading, markAsRead, initialAlertId }: Props) {
   const [selectedAlert, setSelectedAlert] = useState<Alert | null>(null)
+  const selectedRef = useRef<HTMLDivElement>(null)
+
+  // Pre-select alert from overview click
+  useEffect(() => {
+    if (initialAlertId && alerts.length > 0) {
+      const found = alerts.find(a => a.id === initialAlertId)
+      if (found) setSelectedAlert(found)
+    }
+  }, [initialAlertId, alerts])
+
+  // Scroll selected alert into view
+  useEffect(() => {
+    if (selectedRef.current) {
+      selectedRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    }
+  }, [selectedAlert?.id])
   const [filterPriority, setFilterPriority] = useState<string>('all')
   const [filterCategory, setFilterCategory] = useState<string>('all')
 
@@ -139,6 +156,7 @@ export default function AlertsView({ alerts, loading, markAsRead }: Props) {
         {filtered.map((alert) => (
           <div
             key={alert.id}
+            ref={selectedAlert?.id === alert.id ? selectedRef : undefined}
             onClick={() => { setSelectedAlert(alert); if (!alert.read) markAsRead(alert.id) }}
             className={`flex items-start gap-4 p-4 rounded-xl border transition cursor-pointer ${
               selectedAlert?.id === alert.id
