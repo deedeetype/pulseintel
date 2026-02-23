@@ -7,6 +7,11 @@ import { useScans } from '@/hooks/useScans'
 import { useCompetitors } from '@/hooks/useCompetitors'
 import { useAlerts } from '@/hooks/useAlerts'
 import { useInsights } from '@/hooks/useInsights'
+import CompetitorsView from '@/components/CompetitorsView'
+import AlertsView from '@/components/AlertsView'
+import InsightsView from '@/components/InsightsView'
+import NewsFeedView from '@/components/NewsFeedView'
+import ScanHistoryView from '@/components/ScanHistoryView'
 
 export default function Dashboard() {
   const [activeTab, setActiveTab] = useState('overview')
@@ -26,8 +31,8 @@ export default function Dashboard() {
   
   // Fetch real data from Supabase filtered by selected scan
   const { competitors, loading: loadingCompetitors } = useCompetitors(selectedScanId)
-  const { alerts, loading: loadingAlerts, markAsRead } = useAlerts(selectedScanId, 5)
-  const { insights, loading: loadingInsights } = useInsights(selectedScanId, 2)
+  const { alerts, loading: loadingAlerts, markAsRead } = useAlerts(selectedScanId)
+  const { insights, loading: loadingInsights } = useInsights(selectedScanId)
   
   const selectedScan = scans.find(s => s.id === selectedScanId)
 
@@ -192,13 +197,10 @@ export default function Dashboard() {
                   >
                     {scans.map((scan) => {
                       const date = new Date(scan.created_at).toLocaleDateString('en-US', {
-                        month: 'short',
-                        day: 'numeric',
-                        year: 'numeric'
+                        month: 'short', day: 'numeric', year: 'numeric'
                       })
                       const time = new Date(scan.created_at).toLocaleTimeString('en-US', {
-                        hour: 'numeric',
-                        minute: '2-digit'
+                        hour: 'numeric', minute: '2-digit'
                       })
                       return (
                         <option key={scan.id} value={scan.id}>
@@ -231,215 +233,184 @@ export default function Dashboard() {
           </div>
         </div>
 
-        {/* KPI Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-          {[
-            {
-              label: 'Active Competitors',
-              value: loadingCompetitors ? '...' : activeCompetitorsCount.toString(),
-              change: 'Tracked',
-              trend: 'neutral',
-              color: 'blue',
-            },
-            {
-              label: 'Critical Alerts',
-              value: loadingAlerts ? '...' : criticalAlertsCount.toString(),
-              change: 'Requires attention',
-              trend: criticalAlertsCount > 0 ? 'alert' : 'neutral',
-              color: 'red',
-            },
-            {
-              label: 'New Insights',
-              value: loadingInsights ? '...' : newInsightsCount.toString(),
-              change: 'Generated today',
-              trend: 'up',
-              color: 'green',
-            },
-            {
-              label: 'Avg Threat Score',
-              value: loadingCompetitors ? '...' : avgMarketScore,
-              change: 'Market average',
-              trend: 'neutral',
-              color: 'purple',
-            },
-          ].map((kpi) => (
-            <div
-              key={kpi.label}
-              className="bg-slate-900 border border-slate-800 rounded-xl p-6 hover:border-indigo-500/50 transition"
-            >
-              <div className="flex items-start justify-between mb-4">
-                <h3 className="text-sm font-medium text-slate-400">{kpi.label}</h3>
-                <span
-                  className={`text-xs px-2 py-1 rounded-full ${
-                    kpi.trend === 'up'
-                      ? 'bg-green-500/10 text-green-500'
-                      : kpi.trend === 'alert'
-                      ? 'bg-red-500/10 text-red-500'
-                      : 'bg-slate-700 text-slate-400'
-                  }`}
+        {/* Tab Content */}
+        {activeTab === 'overview' && (
+          <>
+            {/* KPI Cards - Clickable */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+              {[
+                { label: 'Active Competitors', value: loadingCompetitors ? '...' : activeCompetitorsCount.toString(), change: 'Tracked', trend: 'neutral', tab: 'competitors' },
+                { label: 'Critical Alerts', value: loadingAlerts ? '...' : criticalAlertsCount.toString(), change: 'Requires attention', trend: criticalAlertsCount > 0 ? 'alert' : 'neutral', tab: 'alerts' },
+                { label: 'New Insights', value: loadingInsights ? '...' : newInsightsCount.toString(), change: 'Generated today', trend: 'up', tab: 'insights' },
+                { label: 'Avg Threat Score', value: loadingCompetitors ? '...' : avgMarketScore, change: 'Market average', trend: 'neutral', tab: 'competitors' },
+              ].map((kpi) => (
+                <div
+                  key={kpi.label}
+                  onClick={() => setActiveTab(kpi.tab)}
+                  className="bg-slate-900 border border-slate-800 rounded-xl p-6 hover:border-indigo-500/50 transition cursor-pointer group"
                 >
-                  {kpi.change}
-                </span>
-              </div>
-              <div className="text-4xl font-bold text-white mb-2">{kpi.value}</div>
-            </div>
-          ))}
-        </div>
-
-        {/* Recent Activity & Top Competitors */}
-        <div className="grid lg:grid-cols-2 gap-6 mb-8">
-          {/* Recent Alerts */}
-          <div className="bg-slate-900 border border-slate-800 rounded-xl p-6">
-            <h2 className="text-xl font-bold text-white mb-4 flex items-center gap-2">
-              🔔 Recent Alerts
-            </h2>
-            {loadingAlerts ? (
-              <div className="text-slate-400 text-center py-8">Loading alerts...</div>
-            ) : alerts.length === 0 ? (
-              <div className="text-slate-400 text-center py-8">No alerts yet</div>
-            ) : (
-              <div className="space-y-3">
-                {alerts.map((alert) => (
-                  <div
-                    key={alert.id}
-                    onClick={() => markAsRead(alert.id)}
-                    className="flex items-start gap-3 p-3 bg-slate-800/50 rounded-lg hover:bg-slate-800 transition cursor-pointer"
-                  >
-                    <div
-                      className={`w-2 h-2 rounded-full mt-2 ${
-                        alert.priority === 'critical'
-                          ? 'bg-red-500'
-                          : alert.priority === 'attention'
-                          ? 'bg-yellow-500'
-                          : 'bg-blue-500'
-                      }`}
-                    />
-                    <div className="flex-1">
-                      <div className="text-white font-medium mb-1">{alert.title}</div>
-                      <div className="text-sm text-slate-400">
-                        {alert.category && `${alert.category} · `}
-                        {timeAgo(alert.created_at)}
-                      </div>
-                    </div>
-                    {!alert.read && (
-                      <div className="w-2 h-2 bg-indigo-500 rounded-full"></div>
-                    )}
+                  <div className="flex items-start justify-between mb-4">
+                    <h3 className="text-sm font-medium text-slate-400">{kpi.label}</h3>
+                    <span className={`text-xs px-2 py-1 rounded-full ${
+                      kpi.trend === 'up' ? 'bg-green-500/10 text-green-500'
+                      : kpi.trend === 'alert' ? 'bg-red-500/10 text-red-500'
+                      : 'bg-slate-700 text-slate-400'
+                    }`}>{kpi.change}</span>
                   </div>
-                ))}
-              </div>
-            )}
-            <button className="w-full mt-4 py-2 text-indigo-400 hover:text-indigo-300 text-sm font-medium transition">
-              View all alerts →
-            </button>
-          </div>
-
-          {/* Top Competitors */}
-          <div className="bg-slate-900 border border-slate-800 rounded-xl p-6">
-            <h2 className="text-xl font-bold text-white mb-4 flex items-center gap-2">
-              🎯 Top Competitors
-            </h2>
-            {loadingCompetitors ? (
-              <div className="text-slate-400 text-center py-8">Loading competitors...</div>
-            ) : topCompetitors.length === 0 ? (
-              <div className="text-slate-400 text-center py-8">No competitors yet</div>
-            ) : (
-              <div className="space-y-3">
-                {topCompetitors.map((comp) => (
-                  <div
-                    key={comp.id}
-                    className="flex items-center justify-between p-3 bg-slate-800/50 rounded-lg hover:bg-slate-800 transition cursor-pointer"
-                  >
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 bg-gradient-to-br from-indigo-500 to-purple-500 rounded-lg flex items-center justify-center text-white font-bold">
-                        {comp.name[0]}
-                      </div>
-                      <div>
-                        <div className="text-white font-medium">{comp.name}</div>
-                        <div className="text-sm text-slate-400">
-                          Activity: {comp.activity_level || 'Unknown'}
-                        </div>
-                      </div>
-                    </div>
-                    <div className="text-right">
-                      <div className="text-lg font-bold text-white">
-                        {comp.threat_score?.toFixed(1) || 'N/A'}
-                      </div>
-                      <div className="text-xs text-slate-400">Threat Score</div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-            <button className="w-full mt-4 py-2 text-indigo-400 hover:text-indigo-300 text-sm font-medium transition">
-              View all competitors →
-            </button>
-          </div>
-        </div>
-
-        {/* Market Trends Chart Placeholder */}
-        <div className="bg-slate-900 border border-slate-800 rounded-xl p-6 mb-8">
-          <h2 className="text-xl font-bold text-white mb-4 flex items-center gap-2">
-            📈 Market Dynamics
-          </h2>
-          <div className="h-64 flex items-center justify-center border-2 border-dashed border-slate-700 rounded-lg">
-            <div className="text-center">
-              <div className="text-4xl mb-2">📊</div>
-              <div className="text-slate-400">Chart visualization coming soon</div>
-              <div className="text-sm text-slate-500 mt-2">
-                {loadingCompetitors ? 'Loading data...' : `Tracking ${activeCompetitorsCount} competitors`}
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* AI Insights */}
-        <div className="bg-gradient-to-br from-indigo-900/50 to-purple-900/50 border border-indigo-500/30 rounded-xl p-6">
-          <h2 className="text-xl font-bold text-white mb-4 flex items-center gap-2">
-            🤖 AI-Generated Insights
-          </h2>
-          {loadingInsights ? (
-            <div className="text-slate-300 text-center py-8">Loading insights...</div>
-          ) : insights.length === 0 ? (
-            <div className="text-slate-300 text-center py-8">No insights generated yet</div>
-          ) : (
-            <div className="space-y-3">
-              {insights.map((insight) => (
-                <div key={insight.id} className="bg-slate-900/50 backdrop-blur-sm rounded-lg p-4">
-                  <div className="flex items-start gap-3">
-                    <div className="text-2xl">
-                      {insight.type === 'threat' ? '⚠️' : 
-                       insight.type === 'opportunity' ? '💡' :
-                       insight.type === 'trend' ? '📈' : '🎯'}
-                    </div>
-                    <div>
-                      <h3 className="text-white font-semibold mb-2">
-                        {insight.title}
-                      </h3>
-                      <p className="text-slate-300 text-sm mb-3">
-                        {insight.description}
-                      </p>
-                      {insight.confidence && (
-                        <div className="flex items-center gap-2 mb-2">
-                          <span className="text-xs text-slate-400">Confidence:</span>
-                          <div className="flex-1 h-2 bg-slate-700 rounded-full max-w-xs">
-                            <div 
-                              className="h-full bg-indigo-500 rounded-full" 
-                              style={{width: `${insight.confidence * 100}%`}}
-                            />
-                          </div>
-                          <span className="text-xs text-slate-400">{Math.round(insight.confidence * 100)}%</span>
-                        </div>
-                      )}
-                      <button className="text-xs text-indigo-400 hover:text-indigo-300 font-medium">
-                        View detailed analysis →
-                      </button>
-                    </div>
-                  </div>
+                  <div className="text-4xl font-bold text-white mb-2">{kpi.value}</div>
+                  <div className="text-xs text-slate-500 opacity-0 group-hover:opacity-100 transition">Click to view details →</div>
                 </div>
               ))}
             </div>
-          )}
-        </div>
+
+            {/* Recent Alerts & Top Competitors - Clickable */}
+            <div className="grid lg:grid-cols-2 gap-6 mb-8">
+              <div className="bg-slate-900 border border-slate-800 rounded-xl p-6">
+                <h2 className="text-xl font-bold text-white mb-4">🔔 Recent Alerts</h2>
+                {loadingAlerts ? (
+                  <div className="text-slate-400 text-center py-8">Loading alerts...</div>
+                ) : alerts.length === 0 ? (
+                  <div className="text-slate-400 text-center py-8">No alerts yet</div>
+                ) : (
+                  <div className="space-y-3">
+                    {alerts.map((alert) => (
+                      <div key={alert.id} onClick={() => { setActiveTab('alerts'); markAsRead(alert.id) }}
+                        className="flex items-start gap-3 p-3 bg-slate-800/50 rounded-lg hover:bg-slate-800 transition cursor-pointer">
+                        <div className={`w-2 h-2 rounded-full mt-2 ${
+                          alert.priority === 'critical' ? 'bg-red-500'
+                          : alert.priority === 'attention' ? 'bg-yellow-500' : 'bg-blue-500'
+                        }`} />
+                        <div className="flex-1">
+                          <div className="text-white font-medium mb-1">{alert.title}</div>
+                          <div className="text-sm text-slate-400">
+                            {alert.category && `${alert.category} · `}{timeAgo(alert.created_at)}
+                          </div>
+                        </div>
+                        {!alert.read && <div className="w-2 h-2 bg-indigo-500 rounded-full"></div>}
+                      </div>
+                    ))}
+                  </div>
+                )}
+                <button onClick={() => setActiveTab('alerts')} className="w-full mt-4 py-2 text-indigo-400 hover:text-indigo-300 text-sm font-medium transition">
+                  View all alerts →
+                </button>
+              </div>
+
+              <div className="bg-slate-900 border border-slate-800 rounded-xl p-6">
+                <h2 className="text-xl font-bold text-white mb-4">🎯 Top Competitors</h2>
+                {loadingCompetitors ? (
+                  <div className="text-slate-400 text-center py-8">Loading competitors...</div>
+                ) : topCompetitors.length === 0 ? (
+                  <div className="text-slate-400 text-center py-8">No competitors yet</div>
+                ) : (
+                  <div className="space-y-3">
+                    {topCompetitors.map((comp) => (
+                      <div key={comp.id} onClick={() => setActiveTab('competitors')}
+                        className="flex items-center justify-between p-3 bg-slate-800/50 rounded-lg hover:bg-slate-800 transition cursor-pointer">
+                        <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 bg-gradient-to-br from-indigo-500 to-purple-500 rounded-lg flex items-center justify-center text-white font-bold">
+                            {comp.name[0]}
+                          </div>
+                          <div>
+                            <div className="text-white font-medium">{comp.name}</div>
+                            <div className="text-sm text-slate-400">Activity: {comp.activity_level || 'Unknown'}</div>
+                          </div>
+                        </div>
+                        <div className="text-right">
+                          <div className="text-lg font-bold text-white">{comp.threat_score?.toFixed(1) || 'N/A'}</div>
+                          <div className="text-xs text-slate-400">Threat Score</div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                <button onClick={() => setActiveTab('competitors')} className="w-full mt-4 py-2 text-indigo-400 hover:text-indigo-300 text-sm font-medium transition">
+                  View all competitors →
+                </button>
+              </div>
+            </div>
+
+            {/* AI Insights Preview */}
+            <div className="bg-gradient-to-br from-indigo-900/50 to-purple-900/50 border border-indigo-500/30 rounded-xl p-6">
+              <h2 className="text-xl font-bold text-white mb-4">🤖 AI-Generated Insights</h2>
+              {loadingInsights ? (
+                <div className="text-slate-300 text-center py-8">Loading insights...</div>
+              ) : insights.length === 0 ? (
+                <div className="text-slate-300 text-center py-8">No insights generated yet</div>
+              ) : (
+                <div className="space-y-3">
+                  {insights.map((insight) => (
+                    <div key={insight.id} onClick={() => setActiveTab('insights')}
+                      className="bg-slate-900/50 backdrop-blur-sm rounded-lg p-4 hover:bg-slate-900/70 transition cursor-pointer">
+                      <div className="flex items-start gap-3">
+                        <div className="text-2xl">
+                          {insight.type === 'threat' ? '⚠️' : insight.type === 'opportunity' ? '💡' : insight.type === 'trend' ? '📈' : '🎯'}
+                        </div>
+                        <div>
+                          <h3 className="text-white font-semibold mb-2">{insight.title}</h3>
+                          <p className="text-slate-300 text-sm mb-3 line-clamp-2">{insight.description}</p>
+                          {insight.confidence && (
+                            <div className="flex items-center gap-2">
+                              <span className="text-xs text-slate-400">Confidence:</span>
+                              <div className="flex-1 h-2 bg-slate-700 rounded-full max-w-xs">
+                                <div className="h-full bg-indigo-500 rounded-full" style={{ width: `${insight.confidence * 100}%` }} />
+                              </div>
+                              <span className="text-xs text-slate-400">{Math.round(insight.confidence * 100)}%</span>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+              <button onClick={() => setActiveTab('insights')} className="w-full mt-4 py-2 text-indigo-300 hover:text-indigo-200 text-sm font-medium transition">
+                View all insights →
+              </button>
+            </div>
+          </>
+        )}
+
+        {activeTab === 'competitors' && (
+          <CompetitorsView competitors={competitors} loading={loadingCompetitors} />
+        )}
+
+        {activeTab === 'alerts' && (
+          <AlertsView alerts={alerts} loading={loadingAlerts} markAsRead={markAsRead} />
+        )}
+
+        {activeTab === 'insights' && (
+          <InsightsView insights={insights} loading={loadingInsights} />
+        )}
+
+        {activeTab === 'news' && (
+          <NewsFeedView scanId={selectedScanId} />
+        )}
+
+        {activeTab === 'reports' && (
+          <ScanHistoryView 
+            scans={scans} 
+            loading={loadingScans} 
+            selectedScanId={selectedScanId}
+            onSelectScan={(id) => { setSelectedScanId(id); setActiveTab('overview') }}
+          />
+        )}
+
+        {activeTab === 'trends' && (
+          <div className="text-center py-20">
+            <div className="text-6xl mb-4">📈</div>
+            <h2 className="text-2xl font-bold text-white mb-2">Market Trends</h2>
+            <p className="text-slate-400">Trend analysis coming soon. Run multiple scans to build trend data!</p>
+          </div>
+        )}
+
+        {activeTab === 'settings' && (
+          <div className="text-center py-20">
+            <div className="text-6xl mb-4">⚙️</div>
+            <h2 className="text-2xl font-bold text-white mb-2">Settings</h2>
+            <p className="text-slate-400">Account settings, scan preferences, and notification configuration coming soon.</p>
+          </div>
+        )}
       </main>
 
       {/* Scan Modal */}
