@@ -65,13 +65,18 @@ async function poeRequest(prompt: string) {
     method: 'POST',
     headers: { 'Authorization': `Bearer ${POE_KEY}`, 'Content-Type': 'application/json' },
     body: JSON.stringify({
-      model: 'Claude-3.5-Sonnet',
+      model: 'Claude-Sonnet-4.5',
       messages: [{ role: 'user', content: prompt }],
       temperature: 0.3,
       max_tokens: 2000
     })
   })
   const data = await res.json()
+  console.log('Poe response status:', res.status, 'has choices:', !!data?.choices)
+  if (!data?.choices?.[0]?.message?.content) {
+    console.error('Poe API error:', JSON.stringify(data).slice(0, 500))
+    throw new Error(`Poe API error: ${data?.error?.message || data?.detail || res.status}`)
+  }
   return data.choices[0].message.content
 }
 
