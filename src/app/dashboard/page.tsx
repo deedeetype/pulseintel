@@ -209,23 +209,20 @@ export default function Dashboard() {
             <div className="flex items-center gap-3">
               {scans.length > 0 && (
                 <>
-                  <label className="text-sm text-slate-400">Viewing:</label>
+                  <label className="text-sm text-slate-400 flex-shrink-0">Viewing:</label>
                   <select
                     value={selectedScanId || ''}
                     onChange={(e) => setSelectedScanId(e.target.value)}
-                    className="bg-slate-800 text-white px-4 py-2 rounded-lg border border-slate-700 focus:border-indigo-500 focus:outline-none"
+                    className="bg-slate-800 text-white px-3 py-2 rounded-lg border border-slate-700 focus:border-indigo-500 focus:outline-none text-sm max-w-[220px] truncate"
                   >
                     {scans.map((scan) => {
                       const date = new Date(scan.created_at).toLocaleDateString('en-US', {
-                        month: 'short', day: 'numeric', year: 'numeric'
+                        month: 'short', day: 'numeric'
                       })
-                      const time = new Date(scan.created_at).toLocaleTimeString('en-US', {
-                        hour: 'numeric', minute: '2-digit'
-                      })
-                      const label = scan.company_name ? `${scan.company_name} (${scan.industry})` : scan.industry
+                      const label = scan.company_name || scan.industry
                       return (
                         <option key={scan.id} value={scan.id}>
-                          {label} - {date} at {time}
+                          {label} — {date}
                         </option>
                       )
                     })}
