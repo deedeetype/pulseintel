@@ -9,9 +9,13 @@ import { useInsights } from '@/hooks/useInsights'
 
 export default function Dashboard() {
   const [activeTab, setActiveTab] = useState('overview')
+  const [showScanModal, setShowScanModal] = useState(false)
+  const [scanIndustry, setScanIndustry] = useState('Financial Services')
+  const [isScanning, setIsScanning] = useState(false)
+  const [scanProgress, setScanProgress] = useState('')
   
   // Fetch scans first
-  const { scans, loading: loadingScans } = useScans(10)
+  const { scans, loading: loadingScans, refetch: refetchScans } = useScans(10)
   const [selectedScanId, setSelectedScanId] = useState<string | undefined>(undefined)
   
   // Auto-select most recent scan
@@ -52,6 +56,59 @@ export default function Dashboard() {
     if (hours < 24) return `${hours}h ago`
     const days = Math.floor(hours / 24)
     return `${days}d ago`
+  }
+
+  // Run scan function
+  async function handleRunScan() {
+    setIsScanning(true)
+    setScanProgress('Starting scan...')
+    
+    try {
+      const response = await fetch('/api/scan', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ industry: scanIndustry })
+      })
+      
+      if (!response.ok) {
+        throw new Error('Scan failed to start')
+      }
+      
+      const data = await response.json()
+      const scanId = data.scanId
+      
+      // Poll for scan completion
+      setScanProgress('Collecting competitors...')
+      const pollInterval = setInterval(async () => {
+        const statusResponse = await fetch(`/api/scan?scanId=${scanId}`)
+        const statusData = await statusResponse.json()
+        
+        if (statusData.status === 'completed') {
+          clearInterval(pollInterval)
+          setScanProgress('Scan complete! Refreshing...')
+          await refetchScans()
+          setIsScanning(false)
+          setShowScanModal(false)
+          setScanProgress('')
+          
+          // Select the new scan
+          setSelectedScanId(scanId)
+        } else if (statusData.status === 'failed') {
+          clearInterval(pollInterval)
+          setScanProgress('Scan failed: ' + statusData.error)
+          setIsScanning(false)
+        } else {
+          // Update progress
+          if (statusData.competitors_count > 0) {
+            setScanProgress(`Found ${statusData.competitors_count} competitors, ${statusData.alerts_count} alerts...`)
+          }
+        }
+      }, 3000)
+      
+    } catch (error: any) {
+      setScanProgress('Error: ' + error.message)
+      setIsScanning(false)
+    }
   }
 
   return (
@@ -124,34 +181,54 @@ export default function Dashboard() {
               </p>
             </div>
             
-            {/* Scan Selector */}
-            {!loadingScans && scans.length > 0 && (
-              <div className="flex items-center gap-3">
-                <label className="text-sm text-slate-400">Viewing:</label>
-                <select
-                  value={selectedScanId}
-                  onChange={(e) => setSelectedScanId(e.target.value)}
-                  className="bg-slate-800 text-white px-4 py-2 rounded-lg border border-slate-700 focus:border-indigo-500 focus:outline-none"
-                >
-                  {scans.map((scan) => {
-                    const date = new Date(scan.created_at).toLocaleDateString('en-US', {
-                      month: 'short',
-                      day: 'numeric',
-                      year: 'numeric'
-                    })
-                    const time = new Date(scan.created_at).toLocaleTimeString('en-US', {
-                      hour: 'numeric',
-                      minute: '2-digit'
-                    })
-                    return (
-                      <option key={scan.id} value={scan.id}>
-                        {scan.industry} - {date} at {time}
-                      </option>
-                    )
-                  })}
-                </select>
-              </div>
-            )}
+            {/* Scan Selector + New Scan Button */}
+            <div className="flex items-center gap-3">
+              {!loadingScans && scans.length > 0 && (
+                <>
+                  <label className="text-sm text-slate-400">Viewing:</label>
+                  <select
+                    value={selectedScanId}
+                    onChange={(e) => setSelectedScanId(e.target.value)}
+                    className="bg-slate-800 text-white px-4 py-2 rounded-lg border border-slate-700 focus:border-indigo-500 focus:outline-none"
+                  >
+                    {scans.map((scan) => {
+                      const date = new Date(scan.created_at).toLocaleDateString('en-US', {
+                        month: 'short',
+                        day: 'numeric',
+                        year: 'numeric'
+                      })
+                      const time = new Date(scan.created_at).toLocaleTimeString('en-US', {
+                        hour: 'numeric',
+                        minute: '2-digit'
+                      })
+                      return (
+                        <option key={scan.id} value={scan.id}>
+                          {scan.industry} - {date} at {time}
+                        </option>
+                      )
+                    })}
+                  </select>
+                </>
+              )}
+              
+              <button
+                onClick={() => setShowScanModal(true)}
+                disabled={isScanning}
+                className="bg-indigo-600 hover:bg-indigo-700 disabled:bg-slate-700 text-white px-4 py-2 rounded-lg font-medium transition flex items-center gap-2"
+              >
+                {isScanning ? (
+                  <>
+                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                    Scanning...
+                  </>
+                ) : (
+                  <>
+                    <span>🔍</span>
+                    New Scan
+                  </>
+                )}
+              </button>
+            </div>
           </div>
         </div>
 
@@ -365,6 +442,74 @@ export default function Dashboard() {
           )}
         </div>
       </main>
+
+      {/* Scan Modal */}
+      {showScanModal && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
+          <div className="bg-slate-900 border border-slate-800 rounded-xl p-8 max-w-md w-full mx-4">
+            <h2 className="text-2xl font-bold text-white mb-4">🔍 New Industry Scan</h2>
+            <p className="text-slate-400 mb-6">
+              Select an industry to scan for competitors, news, and insights.
+            </p>
+
+            <div className="mb-6">
+              <label className="block text-sm font-medium text-slate-400 mb-2">
+                Industry
+              </label>
+              <select
+                value={scanIndustry}
+                onChange={(e) => setScanIndustry(e.target.value)}
+                disabled={isScanning}
+                className="w-full bg-slate-800 text-white px-4 py-3 rounded-lg border border-slate-700 focus:border-indigo-500 focus:outline-none disabled:opacity-50"
+              >
+                <option value="Financial Services">Financial Services</option>
+                <option value="Healthcare">Healthcare</option>
+                <option value="Technology">Technology</option>
+                <option value="E-commerce">E-commerce</option>
+                <option value="SaaS">SaaS</option>
+                <option value="Fintech">Fintech</option>
+                <option value="Cybersecurity">Cybersecurity</option>
+                <option value="AI/ML">AI/ML</option>
+                <option value="Gaming">Gaming</option>
+                <option value="EdTech">EdTech</option>
+              </select>
+            </div>
+
+            {scanProgress && (
+              <div className="mb-4 p-3 bg-indigo-500/10 border border-indigo-500/30 rounded-lg">
+                <p className="text-indigo-300 text-sm">{scanProgress}</p>
+              </div>
+            )}
+
+            <div className="flex gap-3">
+              <button
+                onClick={() => {
+                  setShowScanModal(false)
+                  setScanProgress('')
+                }}
+                disabled={isScanning}
+                className="flex-1 px-4 py-2 bg-slate-800 hover:bg-slate-700 disabled:opacity-50 text-white rounded-lg font-medium transition"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleRunScan}
+                disabled={isScanning}
+                className="flex-1 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white rounded-lg font-medium transition flex items-center justify-center gap-2"
+              >
+                {isScanning ? (
+                  <>
+                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                    Scanning...
+                  </>
+                ) : (
+                  'Start Scan'
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
