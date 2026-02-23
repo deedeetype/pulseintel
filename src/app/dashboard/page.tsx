@@ -61,7 +61,7 @@ export default function Dashboard() {
   // Run scan function
   async function handleRunScan() {
     setIsScanning(true)
-    setScanProgress('Starting scan...')
+    setScanProgress('Starting scan... This takes about 40-60 seconds.')
     
     try {
       const response = await fetch('/api/scan', {
@@ -70,44 +70,33 @@ export default function Dashboard() {
         body: JSON.stringify({ industry: scanIndustry })
       })
       
-      if (!response.ok) {
-        throw new Error('Scan failed to start')
+      const data = await response.json()
+      
+      if (!response.ok || !data.success) {
+        throw new Error(data.error || 'Scan failed to start')
       }
       
-      const data = await response.json()
-      const scanId = data.scanId
+      // Scan completed (Netlify function does everything synchronously)
+      setScanProgress(`✅ Done! Found ${data.results?.competitors || 0} competitors, ${data.results?.alerts || 0} alerts, ${data.results?.insights || 0} insights`)
       
-      // Poll for scan completion
-      setScanProgress('Collecting competitors...')
-      const pollInterval = setInterval(async () => {
-        const statusResponse = await fetch(`/api/scan?scanId=${scanId}`)
-        const statusData = await statusResponse.json()
-        
-        if (statusData.status === 'completed') {
-          clearInterval(pollInterval)
-          setScanProgress('Scan complete! Refreshing...')
-          await refetchScans()
-          setIsScanning(false)
-          setShowScanModal(false)
-          setScanProgress('')
-          
-          // Select the new scan
-          setSelectedScanId(scanId)
-        } else if (statusData.status === 'failed') {
-          clearInterval(pollInterval)
-          setScanProgress('Scan failed: ' + statusData.error)
-          setIsScanning(false)
-        } else {
-          // Update progress
-          if (statusData.competitors_count > 0) {
-            setScanProgress(`Found ${statusData.competitors_count} competitors, ${statusData.alerts_count} alerts...`)
-          }
-        }
-      }, 3000)
+      // Refresh scans list
+      await refetchScans()
+      
+      // Select the new scan
+      if (data.scanId) {
+        setSelectedScanId(data.scanId)
+      }
+      
+      // Close modal after a moment
+      setTimeout(() => {
+        setIsScanning(false)
+        setShowScanModal(false)
+        setScanProgress('')
+      }, 2000)
       
     } catch (error: any) {
-      setScanProgress('Error: ' + error.message)
-      setIsScanning(false)
+      setScanProgress('❌ Error: ' + error.message)
+      setTimeout(() => setIsScanning(false), 3000)
     }
   }
 
