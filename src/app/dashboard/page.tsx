@@ -59,78 +59,50 @@ export default function Dashboard() {
     return `${days}d ago`
   }
 
-  // Run scan function
+  // Helper to call scan step
+  async function callStep(step: string, payload: any) {
+    const res = await fetch('/.netlify/functions/scan-step', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ step, ...payload })
+    })
+    const data = await res.json()
+    if (!res.ok || !data.success) throw new Error(data.error || `Step ${step} failed`)
+    return data
+  }
+
+  // Run scan - orchestrate 4 steps from frontend
   async function handleRunScan() {
     setIsScanning(true)
-    setScanProgress('Starting scan...')
     
     try {
-      // 1. Call start-scan (returns immediately with scanId)
-      const response = await fetch('/.netlify/functions/start-scan', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ industry: scanIndustry })
-      })
+      // Step 0: Create scan record
+      setScanProgress('Initializing scan...')
+      const { scanId } = await callStep('init', { industry: scanIndustry })
       
-      const data = await response.json()
+      // Step 1: Find competitors via Perplexity
+      setScanProgress('🔍 Finding competitors via AI...')
+      const { companies, count: compCount } = await callStep('competitors', { industry: scanIndustry, scanId })
       
-      if (!response.ok || !data.success) {
-        throw new Error(data.error || 'Scan failed to start')
-      }
+      // Step 2: Collect news via Perplexity
+      setScanProgress(`✓ Found ${compCount} competitors. 📰 Collecting news...`)
+      const { news, count: newsCount } = await callStep('news', { industry: scanIndustry })
       
-      const scanId = data.scanId
-      setScanProgress('🔍 Collecting competitors and news... (~40-60 seconds)')
+      // Step 3: Analyze + write to Supabase
+      setScanProgress(`✓ ${compCount} competitors, ${newsCount} news items. 🧠 AI analysis...`)
+      const results = await callStep('analyze', { industry: scanIndustry, scanId, companies, news })
       
-      // 2. Poll Supabase for scan completion
-      const pollInterval = setInterval(async () => {
-        try {
-          const { data: scanData } = await supabase
-            .from('scans')
-            .select('*')
-            .eq('id', scanId)
-            .single()
-          
-          if (scanData?.status === 'completed') {
-            clearInterval(pollInterval)
-            setScanProgress(`✅ Done! Found ${scanData.competitors_count} competitors, ${scanData.alerts_count} alerts, ${scanData.insights_count} insights`)
-            
-            await refetchScans()
-            setSelectedScanId(scanId)
-            
-            setTimeout(() => {
-              setIsScanning(false)
-              setShowScanModal(false)
-              setScanProgress('')
-            }, 2000)
-          } else if (scanData?.status === 'failed') {
-            clearInterval(pollInterval)
-            setScanProgress('❌ Scan failed: ' + (scanData.error_message || 'Unknown error'))
-            setTimeout(() => setIsScanning(false), 3000)
-          } else if (scanData?.status === 'running') {
-            const counts = []
-            if (scanData.competitors_count > 0) counts.push(`${scanData.competitors_count} competitors`)
-            if (scanData.alerts_count > 0) counts.push(`${scanData.alerts_count} alerts`)
-            if (counts.length > 0) {
-              setScanProgress(`🔍 Found ${counts.join(', ')}... still analyzing`)
-            }
-          }
-        } catch (pollError) {
-          // Ignore poll errors, keep trying
-        }
-      }, 4000)
+      // Done!
+      setScanProgress(`✅ Done! ${results.competitors} competitors, ${results.alerts} alerts, ${results.insights} insights, ${results.news} news`)
       
-      // Timeout after 2 minutes
+      await refetchScans()
+      setSelectedScanId(scanId)
+      
       setTimeout(() => {
-        clearInterval(pollInterval)
-        if (isScanning) {
-          setScanProgress('⏱️ Scan is taking longer than expected. Check back shortly.')
-          setTimeout(() => {
-            setIsScanning(false)
-            setShowScanModal(false)
-            setScanProgress('')
-          }, 3000)
-        }
-      }, 120000)
+        setIsScanning(false)
+        setShowScanModal(false)
+        setScanProgress('')
+      }, 2500)
       
     } catch (error: any) {
       setScanProgress('❌ Error: ' + error.message)

@@ -1,0 +1,270 @@
+/**
+ * PulseIntel Multi-Step Scan Function
+ * Each step runs independently within Netlify's timeout
+ * Frontend orchestrates: step1 → step2 → step3 → step4
+ */
+
+import type { Handler, HandlerEvent, HandlerContext } from "@netlify/functions"
+
+const SUPABASE_URL = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL
+const SUPABASE_KEY = process.env.SUPABASE_SERVICE_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY
+const PERPLEXITY_KEY = process.env.PERPLEXITY_API_KEY
+const POE_KEY = process.env.POE_API_KEY
+const DEMO_USER_ID = process.env.DEMO_USER_ID || '2db9243c-9c2b-4c3d-bd1e-48f80f39dfd7'
+
+const CORS = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Methods': 'POST, OPTIONS',
+  'Access-Control-Allow-Headers': 'Content-Type',
+  'Content-Type': 'application/json'
+}
+
+function parseJsonArray(text: string) {
+  try {
+    const match = text.match(/\[[\s\S]*\]/)
+    if (match) {
+      return JSON.parse(match[0].replace(/,(\s*[}\]])/g, '$1'))
+    }
+    return JSON.parse(text)
+  } catch (e) {
+    console.error('JSON parse error:', e)
+    return []
+  }
+}
+
+async function supabasePost(table: string, data: any) {
+  const res = await fetch(`${SUPABASE_URL}/rest/v1/${table}`, {
+    method: 'POST',
+    headers: {
+      'apikey': SUPABASE_KEY!,
+      'Authorization': `Bearer ${SUPABASE_KEY}`,
+      'Content-Type': 'application/json',
+      'Prefer': 'return=representation'
+    },
+    body: JSON.stringify(data)
+  })
+  if (!res.ok) throw new Error(`Supabase POST ${table}: ${res.status} ${await res.text()}`)
+  return res.json()
+}
+
+async function supabasePatch(table: string, filter: string, data: any) {
+  const res = await fetch(`${SUPABASE_URL}/rest/v1/${table}?${filter}`, {
+    method: 'PATCH',
+    headers: {
+      'apikey': SUPABASE_KEY!,
+      'Authorization': `Bearer ${SUPABASE_KEY}`,
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify(data)
+  })
+  if (!res.ok) throw new Error(`Supabase PATCH ${table}: ${res.status} ${await res.text()}`)
+}
+
+async function poeRequest(prompt: string) {
+  const res = await fetch('https://api.poe.com/v1/chat/completions', {
+    method: 'POST',
+    headers: { 'Authorization': `Bearer ${POE_KEY}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      model: 'Claude-Sonnet-4.5',
+      messages: [{ role: 'user', content: prompt }],
+      temperature: 0.3,
+      max_tokens: 2000
+    })
+  })
+  const data = await res.json()
+  return data.choices[0].message.content
+}
+
+// ========== STEPS ==========
+
+// Step 0: Create scan record
+async function stepInit(industry: string) {
+  const [scan] = await supabasePost('scans', {
+    user_id: DEMO_USER_ID,
+    industry,
+    status: 'running'
+  })
+  return { scanId: scan.id }
+}
+
+// Step 1: Find competitors via Perplexity
+async function stepCompetitors(industry: string, scanId: string) {
+  const res = await fetch('https://api.perplexity.ai/chat/completions', {
+    method: 'POST',
+    headers: { 'Authorization': `Bearer ${PERPLEXITY_KEY}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      model: 'sonar-pro',
+      messages: [
+        { role: 'system', content: 'Business intelligence analyst. Respond with valid JSON only.' },
+        { role: 'user', content: `List top 15 companies in ${industry} (2025-2026). JSON array: [{name, domain, description (1-2 sentences), position}]` }
+      ],
+      temperature: 0.3, max_tokens: 2000
+    })
+  })
+  const data = await res.json()
+  const companies = parseJsonArray(data.choices[0].message.content)
+    .filter((c: any) => c.name)
+    .slice(0, 15)
+  
+  return { companies, count: companies.length }
+}
+
+// Step 2: Collect news via Perplexity
+async function stepNews(industry: string) {
+  const res = await fetch('https://api.perplexity.ai/chat/completions', {
+    method: 'POST',
+    headers: { 'Authorization': `Bearer ${PERPLEXITY_KEY}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      model: 'sonar-pro',
+      messages: [
+        { role: 'system', content: 'News analyst. Respond with valid JSON only.' },
+        { role: 'user', content: `15 most recent ${industry} news stories (last 30 days). JSON array: [{title, summary, source, url, tags}]` }
+      ],
+      temperature: 0.4, max_tokens: 3000
+    })
+  })
+  const data = await res.json()
+  const news = parseJsonArray(data.choices[0].message.content)
+    .filter((n: any) => n.title)
+    .slice(0, 15)
+  
+  return { news, count: news.length }
+}
+
+// Step 3: Analyze with Claude + write everything to Supabase
+async function stepAnalyzeAndWrite(industry: string, scanId: string, companies: any[], news: any[]) {
+  // Run all 3 AI analyses in parallel
+  const [analyzedContent, insightsContent, alertsContent] = await Promise.all([
+    poeRequest(`Analyze ${industry} companies. Each: threat_score(0-10), activity_level(low/medium/high), description, employee_count.
+Companies: ${companies.map((c: any) => c.name).join(', ')}
+JSON array only: [{"name":"X","threat_score":7.5,"activity_level":"high","description":"Desc","employee_count":500,"industry":"${industry}"}]`),
+    
+    poeRequest(`3-4 strategic insights for ${industry}.
+Companies: ${companies.slice(0,5).map((c: any) => c.name).join(', ')}
+News: ${news.slice(0,8).map((n: any) => n.title).join('; ')}
+JSON: [{"type":"threat|opportunity|trend|recommendation","title":"X","description":"2-3 sentences","confidence":0.85,"impact":"high","action_items":["X"]}]`),
+    
+    poeRequest(`5-7 alerts from ${industry} news.
+News: ${news.slice(0,12).map((n: any) => n.title).join('; ')}
+JSON: [{"title":"X","description":"Context","priority":"critical|attention|info","category":"funding|product|hiring|news|market"}]`)
+  ])
+
+  const analyzed = parseJsonArray(analyzedContent)
+  const insights = parseJsonArray(insightsContent)
+  const alerts = parseJsonArray(alertsContent)
+
+  // Write to Supabase
+  const insertedCompetitors = analyzed.length > 0 ? await supabasePost('competitors', 
+    analyzed.map((c: any) => ({
+      user_id: DEMO_USER_ID, scan_id: scanId,
+      name: c.name, domain: companies.find((co: any) => co.name === c.name)?.domain || null,
+      industry: c.industry || industry, threat_score: c.threat_score || 5.0,
+      activity_level: c.activity_level || 'medium', description: c.description || '',
+      employee_count: c.employee_count || null,
+      sentiment_score: Math.random() * 0.5 + 0.3,
+      last_activity_date: new Date().toISOString()
+    }))
+  ) : []
+
+  const insertedAlerts = alerts.length > 0 ? await supabasePost('alerts',
+    alerts.map((a: any) => ({
+      user_id: DEMO_USER_ID, scan_id: scanId,
+      competitor_id: insertedCompetitors[0]?.id || null,
+      title: a.title, description: a.description,
+      priority: a.priority || 'info', category: a.category || 'news', read: false
+    }))
+  ) : []
+
+  const insertedInsights = insights.length > 0 ? await supabasePost('insights',
+    insights.map((i: any) => ({
+      user_id: DEMO_USER_ID, scan_id: scanId,
+      type: i.type || 'recommendation', title: i.title, description: i.description,
+      confidence: i.confidence || 0.7, impact: i.impact || 'medium',
+      action_items: i.action_items || []
+    }))
+  ) : []
+
+  const insertedNews = news.length > 0 ? await supabasePost('news_feed',
+    news.map((n: any) => ({
+      user_id: DEMO_USER_ID, scan_id: scanId,
+      title: n.title, summary: n.summary || n.description,
+      source: n.source || 'Perplexity', source_url: n.url || null,
+      relevance_score: 0.5, sentiment: 'neutral', tags: n.tags || []
+    }))
+  ) : []
+
+  // Mark scan as completed
+  await supabasePatch('scans', `id=eq.${scanId}`, {
+    status: 'completed',
+    completed_at: new Date().toISOString(),
+    competitors_count: insertedCompetitors.length,
+    alerts_count: insertedAlerts.length,
+    insights_count: insertedInsights.length,
+    news_count: insertedNews.length
+  })
+
+  return {
+    competitors: insertedCompetitors.length,
+    alerts: insertedAlerts.length,
+    insights: insertedInsights.length,
+    news: insertedNews.length
+  }
+}
+
+// ========== HANDLER ==========
+
+const handler: Handler = async (event: HandlerEvent, context: HandlerContext) => {
+  if (event.httpMethod === 'OPTIONS') {
+    return { statusCode: 204, headers: CORS, body: '' }
+  }
+  
+  if (event.httpMethod !== 'POST') {
+    return { statusCode: 405, headers: CORS, body: JSON.stringify({ error: 'POST only' }) }
+  }
+
+  try {
+    const { step, industry, scanId, companies, news } = JSON.parse(event.body || '{}')
+    
+    if (!step || !industry) {
+      return { statusCode: 400, headers: CORS, body: JSON.stringify({ error: 'step and industry required' }) }
+    }
+
+    let result: any
+
+    switch (step) {
+      case 'init':
+        result = await stepInit(industry)
+        break
+      case 'competitors':
+        result = await stepCompetitors(industry, scanId)
+        break
+      case 'news':
+        result = await stepNews(industry)
+        break
+      case 'analyze':
+        if (!scanId || !companies || !news) {
+          return { statusCode: 400, headers: CORS, body: JSON.stringify({ error: 'scanId, companies, news required for analyze step' }) }
+        }
+        result = await stepAnalyzeAndWrite(industry, scanId, companies, news)
+        break
+      default:
+        return { statusCode: 400, headers: CORS, body: JSON.stringify({ error: `Unknown step: ${step}` }) }
+    }
+
+    return {
+      statusCode: 200,
+      headers: CORS,
+      body: JSON.stringify({ success: true, step, ...result })
+    }
+
+  } catch (error: any) {
+    console.error(`Step error:`, error)
+    return {
+      statusCode: 500,
+      headers: CORS,
+      body: JSON.stringify({ error: error.message, success: false })
+    }
+  }
+}
+
+export { handler }
