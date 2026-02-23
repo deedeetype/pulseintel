@@ -1,46 +1,43 @@
 /**
  * PulseIntel - Start Scan (lightweight, returns immediately)
- * Creates scan record in Supabase, then triggers background function
+ * Creates scan record, triggers background function
  */
+
+import type { Handler, HandlerEvent, HandlerContext } from "@netlify/functions"
 
 const SUPABASE_URL = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL
 const SUPABASE_KEY = process.env.SUPABASE_SERVICE_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY
 const DEMO_USER_ID = process.env.DEMO_USER_ID || '2db9243c-9c2b-4c3d-bd1e-48f80f39dfd7'
 
-export default async (req) => {
-  // CORS
-  if (req.method === 'OPTIONS') {
-    return new Response(null, {
-      status: 204,
-      headers: {
-        'Access-Control-Allow-Origin': '*',
-        'Access-Control-Allow-Methods': 'POST, OPTIONS',
-        'Access-Control-Allow-Headers': 'Content-Type'
-      }
-    })
-  }
-
-  const corsHeaders = {
+const handler: Handler = async (event: HandlerEvent, context: HandlerContext) => {
+  // CORS headers
+  const headers = {
     'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Methods': 'POST, OPTIONS',
+    'Access-Control-Allow-Headers': 'Content-Type',
     'Content-Type': 'application/json'
   }
 
-  if (req.method !== 'POST') {
-    return new Response(JSON.stringify({ error: 'POST only' }), { status: 405, headers: corsHeaders })
+  if (event.httpMethod === 'OPTIONS') {
+    return { statusCode: 204, headers, body: '' }
+  }
+
+  if (event.httpMethod !== 'POST') {
+    return { statusCode: 405, headers, body: JSON.stringify({ error: 'POST only' }) }
   }
 
   try {
-    const { industry } = await req.json()
+    const { industry } = JSON.parse(event.body || '{}')
     
     if (!industry) {
-      return new Response(JSON.stringify({ error: 'Industry required' }), { status: 400, headers: corsHeaders })
+      return { statusCode: 400, headers, body: JSON.stringify({ error: 'Industry required' }) }
     }
 
     // Create scan record in Supabase
     const res = await fetch(`${SUPABASE_URL}/rest/v1/scans`, {
       method: 'POST',
       headers: {
-        'apikey': SUPABASE_KEY,
+        'apikey': SUPABASE_KEY!,
         'Authorization': `Bearer ${SUPABASE_KEY}`,
         'Content-Type': 'application/json',
         'Prefer': 'return=representation'
@@ -67,15 +64,24 @@ export default async (req) => {
       body: JSON.stringify({ industry, scanId: scan.id })
     }).catch(err => console.error('Background trigger error:', err))
 
-    // Return immediately with scanId
-    return new Response(JSON.stringify({
-      success: true,
-      scanId: scan.id,
-      industry,
-      message: 'Scan started! Poll Supabase for status updates.'
-    }), { headers: corsHeaders })
+    return {
+      statusCode: 200,
+      headers,
+      body: JSON.stringify({
+        success: true,
+        scanId: scan.id,
+        industry,
+        message: 'Scan started'
+      })
+    }
 
-  } catch (error) {
-    return new Response(JSON.stringify({ error: error.message }), { status: 500, headers: corsHeaders })
+  } catch (error: any) {
+    return {
+      statusCode: 500,
+      headers,
+      body: JSON.stringify({ error: error.message })
+    }
   }
 }
+
+export { handler }
