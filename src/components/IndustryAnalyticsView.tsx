@@ -12,6 +12,7 @@ interface AnalyticsData {
   funding_activity: { total_billions: number; deal_count: number; avg_deal_millions: number; yoy_change_percent: number }
   market_leaders_share: { name: string; share_percent: number }[]
   regional_distribution: { region: string; share_percent: number }[]
+  sources?: { name: string; url: string }[]
 }
 
 interface Props {
@@ -221,6 +222,35 @@ export default function IndustryAnalyticsView({ analytics, industry, loading }: 
           </div>
         )}
       </div>
+
+      {/* Sources */}
+      {analytics.sources && analytics.sources.length > 0 && (
+        <div className="mt-6 bg-slate-900 border border-slate-800 rounded-xl p-6">
+          <h3 className="text-lg font-bold text-white mb-3">📚 Sources</h3>
+          <div className="space-y-2">
+            {analytics.sources.map((source, i) => (
+              <div key={i} className="flex items-center gap-2">
+                <span className="text-xs text-slate-500 flex-shrink-0">[{i + 1}]</span>
+                {source.url ? (
+                  <a
+                    href={source.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-sm text-indigo-400 hover:text-indigo-300 truncate"
+                  >
+                    {source.name || source.url}
+                  </a>
+                ) : (
+                  <span className="text-sm text-slate-300">{source.name}</span>
+                )}
+              </div>
+            ))}
+          </div>
+          <p className="text-xs text-slate-600 mt-3 italic">
+            Data sourced from industry reports via Perplexity AI. Figures are estimates and may vary by source.
+          </p>
+        </div>
+      )}
     </div>
   )
 }

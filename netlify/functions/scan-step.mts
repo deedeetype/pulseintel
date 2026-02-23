@@ -403,8 +403,18 @@ JSON object with ticker as key: {"AAPL": {"price": 178.50, "currency": "USD", "c
       }
     }
   } else {
-    // Generate fresh industry analytics via AI
-    const analyticsContent = await poeRequest(`Generate market analytics data for the ${industry} industry. Provide realistic estimated data points.
+    // Generate fresh industry analytics via Perplexity (for real data + citations)
+    const analyticsRes = await fetch('https://api.perplexity.ai/chat/completions', {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${PERPLEXITY_KEY}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: 'sonar-pro',
+        messages: [
+          { role: 'system', content: 'Market research analyst. Respond with valid JSON only. No markdown, no code fences. Use real, sourced data from recent industry reports.' },
+          { role: 'user', content: `Provide detailed market analytics data for the ${industry} industry based on real market research reports and data.
+
+Include a "sources" array with the report names and URLs you used.
+
 JSON object only:
 {
   "market_size_billions": 150,
@@ -412,19 +422,34 @@ JSON object only:
   "projected_size_billions": 220,
   "projected_year": 2030,
   "cagr_percent": 8.5,
-  "top_segments": [{"name": "Segment A", "share_percent": 35}, {"name": "Segment B", "share_percent": 25}, {"name": "Segment C", "share_percent": 20}, {"name": "Other", "share_percent": 20}],
+  "top_segments": [{"name": "Segment A", "share_percent": 35}],
   "growth_drivers": ["Driver 1", "Driver 2", "Driver 3"],
   "key_trends": [{"trend": "Trend name", "impact": "high|medium|low", "description": "1 sentence"}],
   "funding_activity": {"total_billions": 12, "deal_count": 350, "avg_deal_millions": 34, "yoy_change_percent": 15},
   "market_leaders_share": [{"name": "Company", "share_percent": 15}],
-  "regional_distribution": [{"region": "North America", "share_percent": 40}, {"region": "Europe", "share_percent": 25}, {"region": "Asia Pacific", "share_percent": 25}, {"region": "Rest of World", "share_percent": 10}]
+  "regional_distribution": [{"region": "North America", "share_percent": 40}],
+  "sources": [{"name": "Report or source name", "url": "https://..."}]
 }
-Use the actual known competitor names from this list where possible: ${analyzed.slice(0,8).map((c: any) => c.name).join(', ')}`)
+Use the actual known competitor names from this list where possible: ${analyzed.slice(0,8).map((c: any) => c.name).join(', ')}` }
+        ],
+        temperature: 0.3, max_tokens: 3000
+      })
+    })
+    const analyticsData = await analyticsRes.json()
+    const analyticsContent = analyticsData?.choices?.[0]?.message?.content
+    // Also capture Perplexity citations if available
+    const perplexityCitations = analyticsData?.citations || []
 
     try {
-      const match = analyticsContent.match(/\{[\s\S]*\}/)
-      if (match) {
-        industryAnalytics = JSON.parse(match[0].replace(/,(\s*[}\]])/g, '$1'))
+      if (analyticsContent) {
+        const match = analyticsContent.match(/\{[\s\S]*\}/)
+        if (match) {
+          industryAnalytics = JSON.parse(match[0].replace(/,(\s*[}\]])/g, '$1'))
+          // Merge Perplexity citations into sources if not already present
+          if (perplexityCitations.length > 0 && !industryAnalytics.sources) {
+            industryAnalytics.sources = perplexityCitations.map((url: string) => ({ name: url.split('/')[2] || url, url }))
+          }
+        }
       }
     } catch (e) {
       console.error('Analytics parse error:', e)

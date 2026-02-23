@@ -383,18 +383,18 @@ export default function Dashboard() {
                   onClick={() => setActiveTab(kpi.tab)}
                   className="bg-slate-900 border border-slate-800 rounded-xl p-6 hover:border-indigo-500/50 transition cursor-pointer group relative"
                 >
-                  <div className="flex items-start justify-between mb-4">
+                  <div className="mb-1">
                     <h3 className="text-sm font-medium text-slate-400 flex items-center gap-1">
                       {kpi.label}
                       <span className="inline-block w-4 h-4 text-center text-xs text-slate-500 bg-slate-800 rounded-full leading-4 cursor-help">?</span>
                     </h3>
-                    <span className={`text-xs px-2 py-1 rounded-full ${
-                      kpi.trend === 'up' ? 'bg-green-500/10 text-green-500'
-                      : kpi.trend === 'alert' ? 'bg-red-500/10 text-red-500'
-                      : 'bg-slate-700 text-slate-400'
-                    }`}>{kpi.change}</span>
                   </div>
-                  <div className="text-4xl font-bold text-white mb-2">{kpi.value}</div>
+                  <div className="text-4xl font-bold text-white mb-1">{kpi.value}</div>
+                  <span className={`inline-block text-xs px-2 py-0.5 rounded-full ${
+                    kpi.trend === 'up' ? 'bg-green-500/10 text-green-500'
+                    : kpi.trend === 'alert' ? 'bg-red-500/10 text-red-500'
+                    : 'bg-slate-700 text-slate-400'
+                  }`}>{kpi.change}</span>
                   <div className="text-xs text-slate-500 opacity-0 group-hover:opacity-100 transition">Click to view details →</div>
                   {/* Tooltip */}
                   <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-64 p-3 bg-slate-800 border border-slate-700 rounded-lg text-xs text-slate-300 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10 shadow-lg">
