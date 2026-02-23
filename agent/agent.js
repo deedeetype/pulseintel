@@ -2,6 +2,7 @@
 
 import dotenv from 'dotenv'
 import { findCompetitors } from './collectors/companies.js'
+import { findCompetitorsPerplexity, collectNewsPerplexity } from './collectors/perplexity.js'
 import { collectNews } from './collectors/news.js'
 import { collectNewsAPI } from './collectors/newsapi.js'
 import { analyzeCompetitors, generateInsights, generateAlerts } from './analyzers/claude.js'
@@ -24,6 +25,7 @@ async function runAgent(industry) {
   
   // Validate environment variables
   const { 
+    PERPLEXITY_API_KEY,
     BRAVE_API_KEY, 
     NEWS_API_KEY,
     POE_API_KEY, 
@@ -32,9 +34,9 @@ async function runAgent(industry) {
     DEMO_USER_ID 
   } = process.env
   
-  if (!BRAVE_API_KEY || !POE_API_KEY || !SUPABASE_URL || !SUPABASE_SERVICE_KEY) {
+  if (!PERPLEXITY_API_KEY || !POE_API_KEY || !SUPABASE_URL || !SUPABASE_SERVICE_KEY) {
     console.error('❌ Missing required environment variables!')
-    console.error('Required: BRAVE_API_KEY, POE_API_KEY, SUPABASE_URL, SUPABASE_SERVICE_KEY')
+    console.error('Required: PERPLEXITY_API_KEY, POE_API_KEY, SUPABASE_URL, SUPABASE_SERVICE_KEY')
     process.exit(1)
   }
   
@@ -46,14 +48,10 @@ async function runAgent(industry) {
     // Phase 1: Data Collection
     console.log(`📊 PHASE 1: Data Collection\n`)
     
-    // Use NewsAPI if available, fallback to Brave Search
-    const newsCollector = NEWS_API_KEY 
-      ? () => collectNewsAPI(industry, NEWS_API_KEY, 20)
-      : () => collectNews(industry, BRAVE_API_KEY, 20)
-    
+    // Use Perplexity AI for both competitors and news (best quality)
     const [companies, news] = await Promise.all([
-      findCompetitors(industry, BRAVE_API_KEY),
-      newsCollector()
+      findCompetitorsPerplexity(industry, PERPLEXITY_API_KEY),
+      collectNewsPerplexity(industry, PERPLEXITY_API_KEY, 20)
     ])
     
     console.log(`\n${'='.repeat(60)}\n`)
