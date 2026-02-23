@@ -87,10 +87,14 @@ async function stepDetect(companyUrl: string) {
       messages: [
         { role: 'system', content: 'Business analyst. Respond with valid JSON only. No markdown, no code fences.' },
         { role: 'user', content: `Analyze this company website: ${companyUrl}
-Identify the company name and its primary industry.
-JSON: {"company_name": "X", "industry": "Y", "description": "1-2 sentence description of what the company does"}
-Use one of these industry labels if applicable: Financial Services, Healthcare, Technology, E-commerce, SaaS, Fintech, Cybersecurity, AI/ML, Gaming, EdTech, Real Estate, Logistics, Energy, Retail, Legal Tech, Insurance, Consulting, Manufacturing, Telecommunications, Media & Entertainment, Food & Beverage, Automotive, Aerospace, Biotech, Crypto/Web3.
-If none fit perfectly, use the most accurate industry label.` }
+Identify the company name and its specific industry/sector.
+Be SPECIFIC about the industry — not generic categories. For example:
+- "Pulp & Paper" not "Manufacturing"
+- "Cloud Computing" not "Technology"  
+- "Electric Vehicles" not "Automotive"
+- "Digital Payments" not "Fintech"
+Use the most precise industry label that describes what this company actually does.
+JSON: {"company_name": "X", "industry": "Y", "description": "1-2 sentence description of what the company does"}` }
       ],
       temperature: 0.2, max_tokens: 500
     })
