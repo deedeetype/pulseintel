@@ -5,13 +5,18 @@ import { useNewsFeed } from '@/hooks/useNewsFeed'
 
 interface Props {
   scanId?: string
-  showAllScans?: boolean
-  onToggleView?: (showAll: boolean) => void
 }
 
-export default function NewsFeedView({ scanId, showAllScans = false, onToggleView }: Props) {
-  const { news, loading, markAsRead } = useNewsFeed(showAllScans ? undefined : scanId)
+export default function NewsFeedView({ scanId }: Props) {
+  const { news, loading, markAsRead } = useNewsFeed(scanId)
   const [selectedNews, setSelectedNews] = useState<any | null>(null)
+  const [filterMode, setFilterMode] = useState<'all' | 'read' | 'unread'>('all')
+
+  const filteredNews = news.filter(item => {
+    if (filterMode === 'unread') return !item.read
+    if (filterMode === 'read') return item.read
+    return true
+  })
 
   const sentimentStyle = (sentiment: string | null) => {
     const styles: Record<string, string> = {
@@ -95,30 +100,40 @@ export default function NewsFeedView({ scanId, showAllScans = false, onToggleVie
       {/* Filter buttons */}
       <div className="mb-4 flex gap-2">
         <button
-          onClick={() => onToggleView?.(false)}
+          onClick={() => setFilterMode('all')}
           className={`px-4 py-2 rounded-lg border text-sm font-medium transition ${
-            !showAllScans
+            filterMode === 'all'
               ? 'bg-indigo-600 border-indigo-500 text-white'
               : 'bg-slate-800 border-slate-700 text-slate-400 hover:border-slate-600'
           }`}
         >
-          Current Scan
+          All
         </button>
         <button
-          onClick={() => onToggleView?.(true)}
+          onClick={() => setFilterMode('unread')}
           className={`px-4 py-2 rounded-lg border text-sm font-medium transition ${
-            showAllScans
+            filterMode === 'unread'
               ? 'bg-indigo-600 border-indigo-500 text-white'
               : 'bg-slate-800 border-slate-700 text-slate-400 hover:border-slate-600'
           }`}
         >
-          All Scans
+          Unread ({news.filter(n => !n.read).length})
+        </button>
+        <button
+          onClick={() => setFilterMode('read')}
+          className={`px-4 py-2 rounded-lg border text-sm font-medium transition ${
+            filterMode === 'read'
+              ? 'bg-indigo-600 border-indigo-500 text-white'
+              : 'bg-slate-800 border-slate-700 text-slate-400 hover:border-slate-600'
+          }`}
+        >
+          Read ({news.filter(n => n.read).length})
         </button>
       </div>
 
       {/* News List */}
       <div className="grid gap-3">
-        {news.map((item) => (
+        {filteredNews.map((item) => (
           <div
             key={item.id}
             onClick={() => {
@@ -158,8 +173,10 @@ export default function NewsFeedView({ scanId, showAllScans = false, onToggleVie
             </div>
           </div>
         ))}
-        {news.length === 0 && (
-          <div className="text-slate-400 text-center py-12">No news articles found. Run a scan to collect news!</div>
+        {filteredNews.length === 0 && (
+          <div className="text-slate-400 text-center py-12">
+            {filterMode === 'unread' ? 'No unread news' : filterMode === 'read' ? 'No read news' : 'No news articles found. Run a scan to collect news!'}
+          </div>
         )}
       </div>
     </div>

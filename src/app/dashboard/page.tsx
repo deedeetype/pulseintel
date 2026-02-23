@@ -529,11 +529,7 @@ export default function Dashboard() {
         )}
 
         {activeTab === 'news' && (
-          <NewsFeedView 
-            scanId={selectedScanId} 
-            showAllScans={showAllNews}
-            onToggleView={(showAll) => setShowAllNews(showAll)}
-          />
+          <NewsFeedView scanId={selectedScanId} />
         )}
 
         {activeTab === 'myscans' && (
