@@ -75,7 +75,7 @@ export default function NewsFeedView({ scanId, showAllScans = false, onToggleVie
           
           {selectedNews.tags && selectedNews.tags.length > 0 && (
             <div className="flex flex-wrap gap-2 mt-4">
-              {selectedNews.tags.map((tag, i) => (
+              {selectedNews.tags.map((tag: string, i: number) => (
                 <span key={i} className="px-2 py-1 bg-slate-800 text-slate-300 rounded-full text-xs">
                   #{tag}
                 </span>
@@ -143,7 +143,7 @@ export default function NewsFeedView({ scanId, showAllScans = false, onToggleVie
                 <div className="flex items-center gap-3 mt-2">
                   {item.source && <span className="text-xs text-indigo-400">{item.source}</span>}
                   <span className="text-xs text-slate-500">{formatDate(item)}</span>
-                  {item.tags && item.tags.slice(0, 3).map((tag, i) => (
+                  {item.tags && item.tags.slice(0, 3).map((tag: string, i: number) => (
                     <span key={i} className="text-xs text-slate-500">#{tag}</span>
                   ))}
                 </div>
