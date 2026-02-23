@@ -1,41 +1,17 @@
 'use client'
 
-import { useState, useEffect } from 'react'
-import { supabase } from '@/lib/supabase'
-
-interface NewsItem {
-  id: string
-  title: string
-  summary: string | null
-  source: string | null
-  source_url: string | null
-  relevance_score: number | null
-  sentiment: string | null
-  tags: string[] | null
-  published_at: string | null
-  created_at: string
-}
+import { useState } from 'react'
+import { useNewsFeed } from '@/hooks/useNewsFeed'
 
 interface Props {
   scanId?: string
+  showAllScans?: boolean
+  onToggleView?: (showAll: boolean) => void
 }
 
-export default function NewsFeedView({ scanId }: Props) {
-  const [news, setNews] = useState<NewsItem[]>([])
-  const [loading, setLoading] = useState(true)
-  const [selectedNews, setSelectedNews] = useState<NewsItem | null>(null)
-
-  useEffect(() => {
-    async function fetch() {
-      setLoading(true)
-      let query = supabase.from('news_feed').select('*').order('created_at', { ascending: false })
-      if (scanId) query = query.eq('scan_id', scanId)
-      const { data } = await query
-      setNews(data || [])
-      setLoading(false)
-    }
-    fetch()
-  }, [scanId])
+export default function NewsFeedView({ scanId, showAllScans = false, onToggleView }: Props) {
+  const { news, loading, markAsRead } = useNewsFeed(showAllScans ? undefined : scanId)
+  const [selectedNews, setSelectedNews] = useState<any | null>(null)
 
   const sentimentStyle = (sentiment: string | null) => {
     const styles: Record<string, string> = {
@@ -46,12 +22,12 @@ export default function NewsFeedView({ scanId }: Props) {
     return styles[sentiment || 'neutral'] || styles.neutral
   }
 
-  const formatDate = (item: NewsItem) => {
+  const formatDate = (item: any) => {
     const date = item.published_at || item.created_at
     return new Date(date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
   }
 
-  const timeAgo = (item: NewsItem) => {
+  const timeAgo = (item: any) => {
     const date = item.published_at || item.created_at
     const hours = Math.floor((new Date().getTime() - new Date(date).getTime()) / 3600000)
     if (hours < 1) return 'just now'
@@ -67,7 +43,9 @@ export default function NewsFeedView({ scanId }: Props) {
     <div>
       <div className="mb-6">
         <h2 className="text-2xl font-bold text-white">📰 News Feed</h2>
-        <p className="text-slate-400 mt-1">{news.length} articles collected</p>
+        <p className="text-slate-400 mt-1">
+          {news.length} articles{news.filter(n => !n.read).length > 0 && <> · <span className="text-indigo-400">{news.filter(n => !n.read).length} unread</span></>}
+        </p>
       </div>
 
       {/* Detail Panel */}
@@ -114,12 +92,39 @@ export default function NewsFeedView({ scanId }: Props) {
         </div>
       )}
 
+      {/* Filter buttons */}
+      <div className="mb-4 flex gap-2">
+        <button
+          onClick={() => onToggleView?.(false)}
+          className={`px-4 py-2 rounded-lg border text-sm font-medium transition ${
+            !showAllScans
+              ? 'bg-indigo-600 border-indigo-500 text-white'
+              : 'bg-slate-800 border-slate-700 text-slate-400 hover:border-slate-600'
+          }`}
+        >
+          Current Scan
+        </button>
+        <button
+          onClick={() => onToggleView?.(true)}
+          className={`px-4 py-2 rounded-lg border text-sm font-medium transition ${
+            showAllScans
+              ? 'bg-indigo-600 border-indigo-500 text-white'
+              : 'bg-slate-800 border-slate-700 text-slate-400 hover:border-slate-600'
+          }`}
+        >
+          All Scans
+        </button>
+      </div>
+
       {/* News List */}
       <div className="grid gap-3">
         {news.map((item) => (
           <div
             key={item.id}
-            onClick={() => setSelectedNews(item)}
+            onClick={() => {
+              setSelectedNews(item)
+              if (!item.read) markAsRead(item.id)
+            }}
             className={`p-4 rounded-xl border transition cursor-pointer ${
               selectedNews?.id === item.id
                 ? 'bg-slate-800 border-indigo-500/50'
@@ -128,7 +133,10 @@ export default function NewsFeedView({ scanId }: Props) {
           >
             <div className="flex items-start justify-between gap-4">
               <div className="flex-1">
-                <h3 className="text-white font-medium">{item.title}</h3>
+                <div className="flex items-center gap-2">
+                  <h3 className="text-white font-medium">{item.title}</h3>
+                  {!item.read && <div className="w-2 h-2 bg-indigo-500 rounded-full flex-shrink-0"></div>}
+                </div>
                 {item.summary && (
                   <p className="text-sm text-slate-400 mt-1 line-clamp-2">{item.summary}</p>
                 )}

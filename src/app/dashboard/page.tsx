@@ -15,6 +15,7 @@ import ScanHistoryView from '@/components/ScanHistoryView'
 import IndustryAnalyticsView from '@/components/IndustryAnalyticsView'
 import SettingsView from '@/components/SettingsView'
 import { useSettings } from '@/contexts/SettingsContext'
+import { useNewsFeed } from '@/hooks/useNewsFeed'
 
 export default function Dashboard() {
   const { settings, t } = useSettings()
@@ -26,6 +27,7 @@ export default function Dashboard() {
   const [scanProgress, setScanProgress] = useState('')
   const [initialAlertId, setInitialAlertId] = useState<string | null>(null)
   const [initialCompetitorId, setInitialCompetitorId] = useState<string | null>(null)
+  const [showAllNews, setShowAllNews] = useState(false)
   
   // Sidebar state - responsive mobile + collapsible desktop
   const [sidebarOpen, setSidebarOpen] = useState(() => {
@@ -66,6 +68,7 @@ export default function Dashboard() {
   const { competitors, loading: loadingCompetitors } = useCompetitors(selectedScanId)
   const { alerts, loading: loadingAlerts, markAsRead } = useAlerts(selectedScanId)
   const { insights, loading: loadingInsights } = useInsights(selectedScanId)
+  const { unreadCount: unreadNewsCount } = useNewsFeed()
   
   const selectedScan = scans.find(s => s.id === selectedScanId)
 
@@ -233,7 +236,7 @@ export default function Dashboard() {
           {[
             { id: 'overview', label: t('nav.overview'), icon: '📊' },
             { id: 'competitors', label: t('nav.competitors'), icon: '🎯' },
-            { id: 'news', label: t('nav.news'), icon: '📰' },
+            { id: 'news', label: t('nav.news'), icon: '📰', badge: unreadNewsCount },
             { id: 'analytics', label: t('nav.analytics'), icon: '📊' },
             { id: 'alerts', label: t('nav.alerts'), icon: '🔔', badge: alerts.filter(a => !a.read).length },
             { id: 'insights', label: t('nav.insights'), icon: '🤖' },
@@ -526,7 +529,11 @@ export default function Dashboard() {
         )}
 
         {activeTab === 'news' && (
-          <NewsFeedView scanId={selectedScanId} />
+          <NewsFeedView 
+            scanId={selectedScanId} 
+            showAllScans={showAllNews}
+            onToggleView={(showAll) => setShowAllNews(showAll)}
+          />
         )}
 
         {activeTab === 'myscans' && (
