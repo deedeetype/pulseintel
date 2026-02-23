@@ -422,5 +422,5 @@ export default async (req) => {
 }
 
 export const config = {
-  path: '/api/scan'
+  path: '/.netlify/functions/run-scan'
 }

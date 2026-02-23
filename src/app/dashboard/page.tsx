@@ -64,7 +64,7 @@ export default function Dashboard() {
     setScanProgress('Starting scan... This takes about 40-60 seconds.')
     
     try {
-      const response = await fetch('/api/scan', {
+      const response = await fetch('/.netlify/functions/run-scan', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ industry: scanIndustry })
