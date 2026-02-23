@@ -211,9 +211,9 @@ async function stepNews(industry: string) {
 async function stepAnalyzeAndWrite(industry: string, scanId: string, companies: any[], news: any[]) {
   // Run all 3 AI analyses in parallel
   const [analyzedContent, insightsContent, alertsContent] = await Promise.all([
-    poeRequest(`Analyze ${industry} companies. Each: threat_score(0-10), activity_level(low/medium/high), description, employee_count.
+    poeRequest(`Analyze ${industry} companies. Each: threat_score(0-10), activity_level(low/medium/high), description, employee_count, stock_ticker (if publicly traded, use format like "AAPL", "MSFT", "TSE:RY" for Toronto, "EPA:BNP" for Paris etc. Use null if private).
 Companies: ${companies.map((c: any) => c.name).join(', ')}
-JSON array only: [{"name":"X","threat_score":7.5,"activity_level":"high","description":"Desc","employee_count":500,"industry":"${industry}"}]`),
+JSON array only: [{"name":"X","threat_score":7.5,"activity_level":"high","description":"Desc","employee_count":500,"industry":"${industry}","stock_ticker":"AAPL"}]`),
     
     poeRequest(`3-4 strategic insights for ${industry}.
 Companies: ${companies.slice(0,5).map((c: any) => c.name).join(', ')}
@@ -229,17 +229,57 @@ JSON: [{"title":"X","description":"Context","priority":"critical|attention|info"
   const insights = parseJsonArray(insightsContent)
   const alerts = parseJsonArray(alertsContent)
 
+  // Fetch stock prices via Perplexity for public companies
+  const publicCompanies = analyzed.filter((c: any) => c.stock_ticker)
+  let stockPrices: Record<string, { price: number; currency: string; change_percent: number }> = {}
+  
+  if (publicCompanies.length > 0) {
+    try {
+      const tickers = publicCompanies.map((c: any) => `${c.name} (${c.stock_ticker})`).join(', ')
+      const stockRes = await fetch('https://api.perplexity.ai/chat/completions', {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${PERPLEXITY_KEY}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          model: 'sonar-pro',
+          messages: [
+            { role: 'system', content: 'Financial data analyst. Respond with valid JSON only. No markdown.' },
+            { role: 'user', content: `Current stock prices for these companies: ${tickers}
+JSON object with ticker as key: {"AAPL": {"price": 178.50, "currency": "USD", "change_percent": -1.2}, "TSE:RY": {"price": 145.30, "currency": "CAD", "change_percent": 0.5}}` }
+          ],
+          temperature: 0.2, max_tokens: 1500
+        })
+      })
+      const stockData = await stockRes.json()
+      const stockContent = stockData?.choices?.[0]?.message?.content
+      if (stockContent) {
+        const match = stockContent.match(/\{[\s\S]*\}/)
+        if (match) {
+          stockPrices = JSON.parse(match[0].replace(/,(\s*[}\]])/g, '$1'))
+        }
+      }
+    } catch (e) {
+      console.error('Stock price fetch error:', e)
+    }
+  }
+
   // Write to Supabase
   const insertedCompetitors = analyzed.length > 0 ? await supabasePost('competitors', 
-    analyzed.map((c: any) => ({
-      user_id: DEMO_USER_ID, scan_id: scanId,
-      name: c.name, domain: companies.find((co: any) => co.name === c.name)?.domain || null,
-      industry: c.industry || industry, threat_score: c.threat_score || 5.0,
-      activity_level: c.activity_level || 'medium', description: c.description || '',
-      employee_count: c.employee_count || null,
-      sentiment_score: Math.random() * 0.5 + 0.3,
-      last_activity_date: new Date().toISOString()
-    }))
+    analyzed.map((c: any) => {
+      const stockInfo = c.stock_ticker ? stockPrices[c.stock_ticker] : null
+      return {
+        user_id: DEMO_USER_ID, scan_id: scanId,
+        name: c.name, domain: companies.find((co: any) => co.name === c.name)?.domain || null,
+        industry: c.industry || industry, threat_score: c.threat_score || 5.0,
+        activity_level: c.activity_level || 'medium', description: c.description || '',
+        employee_count: c.employee_count || null,
+        stock_ticker: c.stock_ticker || null,
+        stock_price: stockInfo?.price || null,
+        stock_currency: stockInfo?.currency || null,
+        stock_change_percent: stockInfo?.change_percent || null,
+        sentiment_score: Math.random() * 0.5 + 0.3,
+        last_activity_date: new Date().toISOString()
+      }
+    })
   ) : []
 
   const insertedAlerts = alerts.length > 0 ? await supabasePost('alerts',

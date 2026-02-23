@@ -22,6 +22,10 @@ export type Competitor = {
   activity_level: 'low' | 'medium' | 'high' | null
   sentiment_score: number | null
   last_activity_date: string | null
+  stock_ticker: string | null
+  stock_price: number | null
+  stock_currency: string | null
+  stock_change_percent: number | null
   created_at: string
   updated_at: string
 }

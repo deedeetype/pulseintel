@@ -116,7 +116,7 @@ export default function CompetitorsView({ competitors, loading }: Props) {
             {/* Inline detail panel */}
             {selectedCompetitor?.id === comp.id && (
               <div className="bg-slate-800 border border-t-0 border-indigo-500/50 rounded-b-xl p-5">
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
+                <div className={`grid grid-cols-2 ${comp.stock_ticker ? 'md:grid-cols-5' : 'md:grid-cols-4'} gap-3 mb-4`}>
                   <div className="bg-slate-900/50 rounded-lg p-3">
                     <div className="text-xs text-slate-400 mb-1">Threat Score</div>
                     <div className={`text-xl font-bold ${threatColor(comp.threat_score)}`}>
@@ -139,6 +139,25 @@ export default function CompetitorsView({ competitors, loading }: Props) {
                     <div className="text-xs text-slate-400 mb-1">Industry</div>
                     <div className="text-sm text-white">{comp.industry || 'N/A'}</div>
                   </div>
+                  {comp.stock_ticker && (
+                    <div className="bg-slate-900/50 rounded-lg p-3">
+                      <div className="text-xs text-slate-400 mb-1">📈 {comp.stock_ticker}</div>
+                      {comp.stock_price ? (
+                        <div>
+                          <div className="text-lg font-bold text-white">
+                            {comp.stock_currency === 'CAD' ? 'C$' : '$'}{comp.stock_price.toFixed(2)}
+                          </div>
+                          {comp.stock_change_percent != null && (
+                            <div className={`text-xs font-medium ${comp.stock_change_percent >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                              {comp.stock_change_percent >= 0 ? '▲' : '▼'} {Math.abs(comp.stock_change_percent).toFixed(2)}%
+                            </div>
+                          )}
+                        </div>
+                      ) : (
+                        <div className="text-sm text-slate-500">N/A</div>
+                      )}
+                    </div>
+                  )}
                 </div>
                 {comp.description && (
                   <p className="text-slate-300 text-sm leading-relaxed">{comp.description}</p>
