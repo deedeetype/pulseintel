@@ -1,14 +1,14 @@
 import { useEffect, useState } from 'react'
 import { supabase, type Insight } from '@/lib/supabase'
 
-export function useInsights(limit?: number) {
+export function useInsights(scanId?: string, limit?: number) {
   const [insights, setInsights] = useState<Insight[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<Error | null>(null)
 
   useEffect(() => {
     fetchInsights()
-  }, [limit])
+  }, [scanId, limit])
 
   async function fetchInsights() {
     try {
@@ -18,11 +18,15 @@ export function useInsights(limit?: number) {
         .select('*')
         .order('created_at', { ascending: false })
 
+      if (scanId) {
+        query = query.eq('scan_id', scanId)
+      }
+
       if (limit) {
         query = query.limit(limit)
       }
 
-      const { data, error } = await query
+      const { data, error} = await query
 
       if (error) throw error
       setInsights(data || [])

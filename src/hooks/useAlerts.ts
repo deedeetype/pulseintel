@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { supabase, type Alert } from '@/lib/supabase'
 
-export function useAlerts(limit?: number) {
+export function useAlerts(scanId?: string, limit?: number) {
   const [alerts, setAlerts] = useState<Alert[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<Error | null>(null)
@@ -28,7 +28,7 @@ export function useAlerts(limit?: number) {
     return () => {
       supabase.removeChannel(channel)
     }
-  }, [limit])
+  }, [scanId, limit])
 
   async function fetchAlerts() {
     try {
@@ -37,6 +37,10 @@ export function useAlerts(limit?: number) {
         .from('alerts')
         .select('*')
         .order('created_at', { ascending: false })
+
+      if (scanId) {
+        query = query.eq('scan_id', scanId)
+      }
 
       if (limit) {
         query = query.limit(limit)

@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { supabase, type Competitor } from '@/lib/supabase'
 
-export function useCompetitors() {
+export function useCompetitors(scanId?: string) {
   const [competitors, setCompetitors] = useState<Competitor[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<Error | null>(null)
@@ -28,15 +28,21 @@ export function useCompetitors() {
     return () => {
       supabase.removeChannel(channel)
     }
-  }, [])
+  }, [scanId])
 
   async function fetchCompetitors() {
     try {
       setLoading(true)
-      const { data, error } = await supabase
+      let query = supabase
         .from('competitors')
         .select('*')
         .order('threat_score', { ascending: false })
+      
+      if (scanId) {
+        query = query.eq('scan_id', scanId)
+      }
+
+      const { data, error } = await query
 
       if (error) throw error
       setCompetitors(data || [])

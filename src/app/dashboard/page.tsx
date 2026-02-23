@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
+import { useScans } from '@/hooks/useScans'
 import { useCompetitors } from '@/hooks/useCompetitors'
 import { useAlerts } from '@/hooks/useAlerts'
 import { useInsights } from '@/hooks/useInsights'
@@ -9,10 +10,21 @@ import { useInsights } from '@/hooks/useInsights'
 export default function Dashboard() {
   const [activeTab, setActiveTab] = useState('overview')
   
-  // Fetch real data from Supabase
-  const { competitors, loading: loadingCompetitors } = useCompetitors()
-  const { alerts, loading: loadingAlerts, markAsRead } = useAlerts(5)
-  const { insights, loading: loadingInsights } = useInsights(2)
+  // Fetch scans first
+  const { scans, loading: loadingScans } = useScans(10)
+  const [selectedScanId, setSelectedScanId] = useState<string | undefined>(undefined)
+  
+  // Auto-select most recent scan
+  if (!selectedScanId && scans.length > 0 && !loadingScans) {
+    setSelectedScanId(scans[0].id)
+  }
+  
+  // Fetch real data from Supabase filtered by selected scan
+  const { competitors, loading: loadingCompetitors } = useCompetitors(selectedScanId)
+  const { alerts, loading: loadingAlerts, markAsRead } = useAlerts(selectedScanId, 5)
+  const { insights, loading: loadingInsights } = useInsights(selectedScanId, 2)
+  
+  const selectedScan = scans.find(s => s.id === selectedScanId)
 
   // Calculate KPIs from real data
   const activeCompetitorsCount = competitors.length
@@ -102,12 +114,45 @@ export default function Dashboard() {
       <main className="ml-64 p-8">
         {/* Header */}
         <div className="mb-8">
-          <h1 className="text-3xl font-bold text-white mb-2">
-            Welcome back, David 👋
-          </h1>
-          <p className="text-slate-400">
-            Here's what's happening with your competitive landscape
-          </p>
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-3xl font-bold text-white mb-2">
+                Welcome back, David 👋
+              </h1>
+              <p className="text-slate-400">
+                Here's what's happening with your competitive landscape
+              </p>
+            </div>
+            
+            {/* Scan Selector */}
+            {!loadingScans && scans.length > 0 && (
+              <div className="flex items-center gap-3">
+                <label className="text-sm text-slate-400">Viewing:</label>
+                <select
+                  value={selectedScanId}
+                  onChange={(e) => setSelectedScanId(e.target.value)}
+                  className="bg-slate-800 text-white px-4 py-2 rounded-lg border border-slate-700 focus:border-indigo-500 focus:outline-none"
+                >
+                  {scans.map((scan) => {
+                    const date = new Date(scan.created_at).toLocaleDateString('en-US', {
+                      month: 'short',
+                      day: 'numeric',
+                      year: 'numeric'
+                    })
+                    const time = new Date(scan.created_at).toLocaleTimeString('en-US', {
+                      hour: 'numeric',
+                      minute: '2-digit'
+                    })
+                    return (
+                      <option key={scan.id} value={scan.id}>
+                        {scan.industry} - {date} at {time}
+                      </option>
+                    )
+                  })}
+                </select>
+              </div>
+            )}
+          </div>
         </div>
 
         {/* KPI Cards */}

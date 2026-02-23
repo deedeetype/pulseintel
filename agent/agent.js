@@ -80,7 +80,8 @@ async function runAgent(industry) {
       },
       SUPABASE_URL,
       SUPABASE_SERVICE_KEY,
-      DEMO_USER_ID || 'demo_user'
+      DEMO_USER_ID || 'demo_user',
+      startTime
     )
     
     // Summary
