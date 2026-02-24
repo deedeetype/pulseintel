@@ -33,7 +33,9 @@ ALTER TABLE news_feed
   ON DELETE CASCADE;
 
 -- Add RLS policies for DELETE (demo mode - public access)
--- TODO: Restrict to user_id when Clerk auth is implemented
+-- ⚠️ WARNING: NOT PRODUCTION READY - Anyone can delete any data
+-- TODO SECURITY: Replace with user-scoped policies after Clerk auth implementation
+-- See SECURITY-TODO.md for migration steps
 
 CREATE POLICY "Public delete scans" ON scans
   FOR DELETE

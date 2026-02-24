@@ -638,6 +638,8 @@ export default function Dashboard() {
               try {
                 setScanProgress('🗑️ Deleting profile and all data...')
                 
+                // TODO SECURITY: Replace with user-scoped policy after Clerk auth
+                // Currently uses public DELETE policy (demo mode only)
                 // Delete from Supabase (cascade will handle related data)
                 const res = await fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/rest/v1/scans?id=eq.${id}`, {
                   method: 'DELETE',
