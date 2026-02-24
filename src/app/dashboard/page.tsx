@@ -22,6 +22,13 @@ export default function Dashboard() {
   const { user, isLoaded } = useUser()
   const { settings, t } = useSettings()
   const [activeTab, setActiveTab] = useState('overview')
+  
+  // Redirect to onboarding if user hasn't completed it
+  useEffect(() => {
+    if (isLoaded && user && !user.unsafeMetadata?.onboarded) {
+      window.location.href = '/onboarding'
+    }
+  }, [isLoaded, user])
   const [showScanModal, setShowScanModal] = useState(false)
   const [scanIndustry, setScanIndustry] = useState('auto')
   const [companyUrl, setCompanyUrl] = useState('')
