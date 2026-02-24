@@ -634,6 +634,39 @@ export default function Dashboard() {
             onFullRescan={(id) => {
               alert('Full rescan: Delete this profile and create a new one with the same parameters.')
             }}
+            onDeleteProfile={async (id) => {
+              try {
+                setScanProgress('🗑️ Deleting profile and all data...')
+                
+                // Delete from Supabase (cascade will handle related data)
+                const res = await fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/rest/v1/scans?id=eq.${id}`, {
+                  method: 'DELETE',
+                  headers: {
+                    'apikey': process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '',
+                    'Authorization': `Bearer ${process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY}`,
+                  }
+                })
+                
+                if (!res.ok) {
+                  throw new Error(`Delete failed: ${res.status}`)
+                }
+                
+                setScanProgress('✅ Profile deleted')
+                
+                // Refresh scan list
+                await refetchScans()
+                
+                // If deleted scan was selected, clear selection
+                if (selectedScanId === id) {
+                  setSelectedScanId('')
+                }
+                
+                setTimeout(() => setScanProgress(''), 2000)
+              } catch (error: any) {
+                setScanProgress(`❌ Error: ${error.message}`)
+                setTimeout(() => setScanProgress(''), 3000)
+              }
+            }}
           />
         )}
 

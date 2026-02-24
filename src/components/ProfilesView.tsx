@@ -9,9 +9,10 @@ interface Props {
   onSelectScan: (id: string) => void
   onRefreshProfile?: (id: string) => void
   onFullRescan?: (id: string) => void
+  onDeleteProfile?: (id: string) => void
 }
 
-export default function ProfilesView({ scans, loading, selectedScanId, onSelectScan, onRefreshProfile, onFullRescan }: Props) {
+export default function ProfilesView({ scans, loading, selectedScanId, onSelectScan, onRefreshProfile, onFullRescan, onDeleteProfile }: Props) {
   if (loading) {
     return <div className="text-slate-400 text-center py-20">Loading profiles...</div>
   }
@@ -92,6 +93,19 @@ export default function ProfilesView({ scans, loading, selectedScanId, onSelectS
                     title="Full rescan from scratch"
                   >
                     ⚡ Full Rescan
+                  </button>
+                )}
+                {onDeleteProfile && (
+                  <button
+                    onClick={() => {
+                      if (confirm(`Delete this profile and all its data?\n\nIndustry: ${scan.industry}\n${scan.company_name ? `Company: ${scan.company_name}\n` : ''}This action cannot be undone.`)) {
+                        onDeleteProfile(scan.id)
+                      }
+                    }}
+                    className="px-3 py-1.5 bg-rose-600 hover:bg-rose-700 text-white rounded-lg text-sm font-medium transition flex items-center gap-1"
+                    title="Delete profile and all data"
+                  >
+                    🗑️ Delete
                   </button>
                 )}
               </div>
