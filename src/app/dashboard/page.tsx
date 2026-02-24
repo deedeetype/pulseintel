@@ -25,6 +25,7 @@ export default function Dashboard() {
   const [companyUrl, setCompanyUrl] = useState('')
   const [isScanning, setIsScanning] = useState(false)
   const [scanProgress, setScanProgress] = useState('')
+  const [scanProgressPercent, setScanProgressPercent] = useState(0)
   const [initialAlertId, setInitialAlertId] = useState<string | null>(null)
   const [initialCompetitorId, setInitialCompetitorId] = useState<string | null>(null)
   const [showAllNews, setShowAllNews] = useState(false)
@@ -135,6 +136,7 @@ export default function Dashboard() {
 
       // Step 0: Create scan record OR reuse existing profile
       setScanProgress(`Initializing ${industry} scan...`)
+      setScanProgressPercent(10)
       const initResult = await callStep('init', { industry, companyUrl: companyUrl || undefined, companyName: companyName || undefined })
       const { scanId, isRefresh } = initResult
       
@@ -154,10 +156,12 @@ export default function Dashboard() {
         const existingCompetitors = await res.json()
         compCount = existingCompetitors?.length || 0
         setScanProgress(`✓ Reusing existing ${compCount} competitors from profile.`)
+        setScanProgressPercent(40)
         // Pass empty companies array for analyze step
         companies = []
       } else {
         setScanProgress('🔍 Finding competitors via AI...')
+        setScanProgressPercent(20)
         const watchlist = settings.scanPreferences.watchlist || []
         const competitorsResult = await callStep('competitors', { 
           industry, 
@@ -170,14 +174,17 @@ export default function Dashboard() {
         companies = competitorsResult.companies
         compCount = competitorsResult.count
         setScanProgress(`✓ Found ${compCount} competitors.`)
+        setScanProgressPercent(40)
       }
       
       // Step 2: Collect news via Perplexity
       setScanProgress(`📰 Collecting recent ${industry} news...`)
+      setScanProgressPercent(60)
       const { news, count: newsCount } = await callStep('news', { industry })
       
       // Step 3: Analyze + write to Supabase (incremental if refresh)
       setScanProgress(`✓ ${newsCount} news items. 🧠 AI analysis...`)
+      setScanProgressPercent(80)
       const results = await callStep('analyze', { 
         industry, 
         scanId, 
@@ -187,6 +194,7 @@ export default function Dashboard() {
       })
       
       // Done!
+      setScanProgressPercent(100)
       if (isRefresh) {
         setScanProgress(`✅ Profile refreshed! ${results.alerts} new alerts, ${results.insights} new insights, ${results.news} new articles`)
       } else {
@@ -200,6 +208,7 @@ export default function Dashboard() {
         setIsScanning(false)
         setShowScanModal(false)
         setScanProgress('')
+        setScanProgressPercent(0)
       }, 2500)
       
     } catch (error: any) {
@@ -249,7 +258,7 @@ export default function Dashboard() {
             { id: 'analytics', label: t('nav.analytics'), icon: '📊' },
             { id: 'alerts', label: t('nav.alerts'), icon: '🔔', badge: alerts.filter(a => !a.read).length },
             { id: 'insights', label: t('nav.insights'), icon: '🤖' },
-            { id: 'profiles', label: t('nav.profiles'), icon: '🗂️' },
+            { id: 'mywatch', label: t('nav.mywatch'), icon: '👁️' },
             { id: 'settings', label: t('nav.settings'), icon: '⚙️' },
           ].map((item) => (
             <button
@@ -326,6 +335,14 @@ export default function Dashboard() {
               <p className="text-slate-400">
                 {t('subtitle')}
               </p>
+              {selectedScan?.last_refreshed_at && (
+                <p className="text-xs text-slate-500 mt-1">
+                  Last refreshed: {new Date(selectedScan.last_refreshed_at).toLocaleString('en-US', { 
+                    month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' 
+                  })}
+                  {selectedScan.refresh_count > 0 && ` · ${selectedScan.refresh_count} refresh${selectedScan.refresh_count > 1 ? 'es' : ''}`}
+                </p>
+              )}
             </div>
             
             {/* Scan Selector + New Scan Button */}
@@ -406,7 +423,7 @@ export default function Dashboard() {
                   ) : (
                     <>
                       <span>🔄</span>
-                      Refresh Current
+                      Refresh
                     </>
                   )}
                 </button>
@@ -600,7 +617,7 @@ export default function Dashboard() {
           <NewsFeedView scanId={selectedScanId} />
         )}
 
-        {activeTab === 'profiles' && (
+        {activeTab === 'mywatch' && (
           <ProfilesView 
             scans={scans} 
             loading={loadingScans} 
@@ -710,8 +727,16 @@ export default function Dashboard() {
             </div>
 
             {scanProgress && (
-              <div className="mb-4 p-3 bg-indigo-500/10 border border-indigo-500/30 rounded-lg">
-                <p className="text-indigo-300 text-sm">{scanProgress}</p>
+              <div className="mb-4">
+                <div className="p-3 bg-indigo-500/10 border border-indigo-500/30 rounded-lg mb-2">
+                  <p className="text-indigo-300 text-sm">{scanProgress}</p>
+                </div>
+                <div className="h-2 bg-slate-800 rounded-full overflow-hidden">
+                  <div 
+                    className="h-full bg-gradient-to-r from-indigo-500 to-cyan-500 transition-all duration-500"
+                    style={{ width: `${scanProgressPercent}%` }}
+                  />
+                </div>
               </div>
             )}
 

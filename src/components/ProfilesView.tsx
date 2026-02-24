@@ -16,6 +16,18 @@ export default function ProfilesView({ scans, loading, selectedScanId, onSelectS
     return <div className="text-slate-400 text-center py-20">Loading profiles...</div>
   }
 
+  // Deduplicate scans: keep only the most recent one per industry+company_url
+  const uniqueProfiles = scans.reduce((acc, scan) => {
+    const key = `${scan.industry}|${scan.company_url || ''}`
+    const existing = acc.get(key)
+    if (!existing || new Date(scan.updated_at || scan.created_at) > new Date(existing.updated_at || existing.created_at)) {
+      acc.set(key, scan)
+    }
+    return acc
+  }, new Map<string, Scan>())
+  
+  const profiles = Array.from(uniqueProfiles.values())
+
   const formatDate = (date: string) => {
     return new Date(date).toLocaleDateString('en-US', {
       month: 'short', day: 'numeric', year: 'numeric',
@@ -31,12 +43,12 @@ export default function ProfilesView({ scans, loading, selectedScanId, onSelectS
   return (
     <div>
       <div className="mb-6">
-        <h2 className="text-2xl font-bold text-white">🗂️ My Profiles</h2>
-        <p className="text-slate-400 mt-1">{scans.length} research profiles</p>
+        <h2 className="text-2xl font-bold text-white">👁️ My Watch</h2>
+        <p className="text-slate-400 mt-1">{profiles.length} research profile{profiles.length !== 1 ? 's' : ''}</p>
       </div>
 
       <div className="grid gap-4">
-        {scans.map((scan) => (
+        {profiles.map((scan) => (
           <div
             key={scan.id}
             className={`p-5 rounded-xl border transition ${
@@ -109,7 +121,7 @@ export default function ProfilesView({ scans, loading, selectedScanId, onSelectS
             )}
           </div>
         ))}
-        {scans.length === 0 && (
+        {profiles.length === 0 && (
           <div className="text-slate-400 text-center py-12">No profiles yet. Click "New Scan" to create your first research profile!</div>
         )}
       </div>
