@@ -60,7 +60,7 @@ export async function POST(req: Request) {
         const createdAt = new Date(userData.created_at).toISOString()
         const updatedAt = new Date(userData.updated_at).toISOString()
 
-        // Upsert to Supabase users table
+        // Upsert to Supabase users table (only fields that exist in schema)
         const res = await fetch(`${SUPABASE_URL}/rest/v1/users`, {
           method: 'POST',
           headers: {
@@ -72,13 +72,8 @@ export async function POST(req: Request) {
           body: JSON.stringify({
             clerk_id: userId,
             email,
-            first_name: firstName,
-            last_name: lastName,
-            username,
-            avatar_url: imageUrl,
             name: `${firstName || ''} ${lastName || ''}`.trim() || username || email,
-            created_at: createdAt,
-            updated_at: updatedAt
+            created_at: createdAt
           })
         })
 
