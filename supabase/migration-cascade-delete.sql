@@ -32,5 +32,28 @@ ALTER TABLE news_feed
   REFERENCES scans(id)
   ON DELETE CASCADE;
 
+-- Add RLS policies for DELETE (demo mode - public access)
+-- TODO: Restrict to user_id when Clerk auth is implemented
+
+CREATE POLICY "Public delete scans" ON scans
+  FOR DELETE
+  USING (true);
+
+CREATE POLICY "Public delete competitors" ON competitors
+  FOR DELETE
+  USING (true);
+
+CREATE POLICY "Public delete alerts" ON alerts
+  FOR DELETE
+  USING (true);
+
+CREATE POLICY "Public delete insights" ON insights
+  FOR DELETE
+  USING (true);
+
+CREATE POLICY "Public delete news_feed" ON news_feed
+  FOR DELETE
+  USING (true);
+
 -- Refresh PostgREST schema cache
 NOTIFY pgrst, 'reload schema';
