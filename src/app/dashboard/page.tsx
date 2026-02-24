@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
+import { useUser, UserButton } from '@clerk/nextjs'
 import { useScans } from '@/hooks/useScans'
 import { useCompetitors } from '@/hooks/useCompetitors'
 import { useAlerts } from '@/hooks/useAlerts'
@@ -18,6 +19,7 @@ import { useSettings } from '@/contexts/SettingsContext'
 import { useNewsFeed } from '@/hooks/useNewsFeed'
 
 export default function Dashboard() {
+  const { user, isLoaded } = useUser()
   const { settings, t } = useSettings()
   const [activeTab, setActiveTab] = useState('overview')
   const [showScanModal, setShowScanModal] = useState(false)
@@ -296,11 +298,15 @@ export default function Dashboard() {
         {!sidebarCollapsed && (
           <div className="absolute bottom-0 left-0 right-0 p-4 border-t border-slate-800">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-gradient-to-br from-indigo-500 to-purple-500 rounded-full flex items-center justify-center text-white font-bold">
-                {(settings.profile.name || 'D')[0].toUpperCase()}
-              </div>
+              <UserButton 
+                appearance={{
+                  elements: {
+                    avatarBox: "w-10 h-10"
+                  }
+                }}
+              />
               <div className="flex-1">
-                <div className="text-sm font-medium text-white">{settings.profile.name || 'David'}</div>
+                <div className="text-sm font-medium text-white">{user?.firstName || user?.username || 'User'}</div>
                 <div className="text-xs text-slate-400">{t('free_plan')}</div>
               </div>
             </div>
@@ -309,9 +315,13 @@ export default function Dashboard() {
         
         {sidebarCollapsed && (
           <div className="absolute bottom-0 left-0 right-0 p-4 border-t border-slate-800 flex justify-center">
-            <div className="w-10 h-10 bg-gradient-to-br from-indigo-500 to-purple-500 rounded-full flex items-center justify-center text-white font-bold">
-              {(settings.profile.name || 'D')[0].toUpperCase()}
-            </div>
+            <UserButton 
+              appearance={{
+                elements: {
+                  avatarBox: "w-10 h-10"
+                }
+              }}
+            />
           </div>
         )}
       </aside>
