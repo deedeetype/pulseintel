@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
-import { supabase } from '@/lib/supabase'
+import { createSupabaseClient } from '@/lib/supabase'
+import { useAuth } from '@clerk/nextjs'
 
 export interface Scan {
   id: string
@@ -23,31 +24,20 @@ export interface Scan {
 }
 
 export function useScans(limit?: number) {
+  const { getToken } = useAuth()
   const [scans, setScans] = useState<Scan[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
     fetchScans()
-
-    // Subscribe to new scans
-    const subscription = supabase
-      .channel('scans_channel')
-      .on('postgres_changes', 
-        { event: '*', schema: 'public', table: 'scans' },
-        () => {
-          fetchScans()
-        }
-      )
-      .subscribe()
-
-    return () => {
-      subscription.unsubscribe()
-    }
   }, [limit])
 
   async function fetchScans() {
     try {
+      const token = await getToken({ template: 'supabase' })
+      const supabase = createSupabaseClient(token || undefined)
+      
       let query = supabase
         .from('scans')
         .select('*')

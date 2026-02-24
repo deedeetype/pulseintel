@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
-import { supabase } from '@/lib/supabase'
+import { createSupabaseClient } from '@/lib/supabase'
+import { useAuth } from '@clerk/nextjs'
 
 export interface NewsItem {
   id: string
@@ -17,29 +18,20 @@ export interface NewsItem {
 }
 
 export function useNewsFeed(scanId?: string) {
+  const { getToken } = useAuth()
   const [news, setNews] = useState<NewsItem[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
     fetchNews()
-
-    // Subscribe to changes
-    const subscription = supabase
-      .channel('news_channel')
-      .on('postgres_changes', 
-        { event: '*', schema: 'public', table: 'news_feed' },
-        () => { fetchNews() }
-      )
-      .subscribe()
-
-    return () => {
-      subscription.unsubscribe()
-    }
   }, [scanId])
 
   async function fetchNews() {
     try {
+      const token = await getToken({ template: 'supabase' })
+      const supabase = createSupabaseClient(token || undefined)
+      
       // Get from news_feed table
       let query = supabase
         .from('news_feed')

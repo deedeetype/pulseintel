@@ -1,7 +1,9 @@
 import { useEffect, useState } from 'react'
-import { supabase, type Insight } from '@/lib/supabase'
+import { createSupabaseClient, type Insight } from '@/lib/supabase'
+import { useAuth } from '@clerk/nextjs'
 
 export function useInsights(scanId?: string, limit?: number) {
+  const { getToken } = useAuth()
   const [insights, setInsights] = useState<Insight[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<Error | null>(null)
@@ -13,6 +15,9 @@ export function useInsights(scanId?: string, limit?: number) {
   async function fetchInsights() {
     try {
       setLoading(true)
+      const token = await getToken({ template: 'supabase' })
+      const supabase = createSupabaseClient(token || undefined)
+      
       let query = supabase
         .from('insights')
         .select('*')

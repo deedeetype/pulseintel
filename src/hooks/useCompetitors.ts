@@ -1,38 +1,23 @@
 import { useEffect, useState } from 'react'
-import { supabase, type Competitor } from '@/lib/supabase'
+import { createSupabaseClient, type Competitor } from '@/lib/supabase'
+import { useAuth } from '@clerk/nextjs'
 
 export function useCompetitors(scanId?: string) {
+  const { getToken } = useAuth()
   const [competitors, setCompetitors] = useState<Competitor[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<Error | null>(null)
 
   useEffect(() => {
     fetchCompetitors()
-
-    // Real-time subscription
-    const channel = supabase
-      .channel('competitors-changes')
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'competitors'
-        },
-        () => {
-          fetchCompetitors()
-        }
-      )
-      .subscribe()
-
-    return () => {
-      supabase.removeChannel(channel)
-    }
   }, [scanId])
 
   async function fetchCompetitors() {
     try {
       setLoading(true)
+      const token = await getToken({ template: 'supabase' })
+      const supabase = createSupabaseClient(token || undefined)
+      
       let query = supabase
         .from('competitors')
         .select('*')

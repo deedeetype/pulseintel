@@ -1,38 +1,23 @@
 import { useEffect, useState } from 'react'
-import { supabase, type Alert } from '@/lib/supabase'
+import { createSupabaseClient, type Alert } from '@/lib/supabase'
+import { useAuth } from '@clerk/nextjs'
 
 export function useAlerts(scanId?: string, limit?: number) {
+  const { getToken } = useAuth()
   const [alerts, setAlerts] = useState<Alert[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<Error | null>(null)
 
   useEffect(() => {
     fetchAlerts()
-
-    // Real-time subscription
-    const channel = supabase
-      .channel('alerts-changes')
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'alerts'
-        },
-        () => {
-          fetchAlerts()
-        }
-      )
-      .subscribe()
-
-    return () => {
-      supabase.removeChannel(channel)
-    }
   }, [scanId, limit])
 
   async function fetchAlerts() {
     try {
       setLoading(true)
+      const token = await getToken({ template: 'supabase' })
+      const supabase = createSupabaseClient(token || undefined)
+      
       let query = supabase
         .from('alerts')
         .select('*')
@@ -60,6 +45,9 @@ export function useAlerts(scanId?: string, limit?: number) {
 
   async function markAsRead(alertId: string) {
     try {
+      const token = await getToken({ template: 'supabase' })
+      const supabase = createSupabaseClient(token || undefined)
+      
       const { error } = await supabase
         .from('alerts')
         .update({ read: true })

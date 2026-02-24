@@ -3,7 +3,19 @@ import { createClient } from '@supabase/supabase-js'
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 
+// Default client for server-side and unauthenticated requests
 export const supabase = createClient(supabaseUrl, supabaseAnonKey)
+
+// Client factory that accepts a Clerk session token
+export function createSupabaseClient(sessionToken?: string) {
+  return createClient(supabaseUrl, supabaseAnonKey, {
+    global: {
+      headers: sessionToken ? {
+        Authorization: `Bearer ${sessionToken}`
+      } : {}
+    }
+  })
+}
 
 // Types
 export type Competitor = {
