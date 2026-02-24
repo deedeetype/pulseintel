@@ -227,8 +227,14 @@ export default function Dashboard() {
       }, 2500)
       
     } catch (error: any) {
-      setScanProgress('❌ Error: ' + error.message)
-      setTimeout(() => setIsScanning(false), 3000)
+      setScanProgress('❌ Scan failed. Please try again.')
+      setScanProgressPercent(0)
+      console.error('Scan error:', error)
+      setTimeout(() => {
+        setIsScanning(false)
+        setShowScanModal(false)
+        setScanProgress('')
+      }, 3000)
     }
   }
 
@@ -788,15 +794,29 @@ export default function Dashboard() {
 
             {scanProgress && (
               <div className="mb-4">
-                <div className="p-3 bg-indigo-500/10 border border-indigo-500/30 rounded-lg mb-2">
-                  <p className="text-indigo-300 text-sm">{scanProgress}</p>
+                <div className={`p-4 rounded-lg mb-2 ${
+                  scanProgress.startsWith('❌') 
+                    ? 'bg-red-500/10 border border-red-500/30' 
+                    : scanProgress.startsWith('✅')
+                    ? 'bg-green-500/10 border border-green-500/30'
+                    : 'bg-indigo-500/10 border border-indigo-500/30'
+                }`}>
+                  <p className={`text-sm font-medium ${
+                    scanProgress.startsWith('❌') 
+                      ? 'text-red-300' 
+                      : scanProgress.startsWith('✅')
+                      ? 'text-green-300'
+                      : 'text-indigo-300'
+                  }`}>{scanProgress}</p>
                 </div>
-                <div className="h-2 bg-slate-800 rounded-full overflow-hidden">
-                  <div 
-                    className="h-full bg-gradient-to-r from-indigo-500 to-cyan-500 transition-all duration-500"
-                    style={{ width: `${scanProgressPercent}%` }}
-                  />
-                </div>
+                {!scanProgress.startsWith('❌') && (
+                  <div className="h-2 bg-slate-800 rounded-full overflow-hidden">
+                    <div 
+                      className="h-full bg-gradient-to-r from-indigo-500 to-cyan-500 transition-all duration-500"
+                      style={{ width: `${scanProgressPercent}%` }}
+                    />
+                  </div>
+                )}
               </div>
             )}
 
