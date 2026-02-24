@@ -1,4 +1,3 @@
-import type { Handler, HandlerEvent } from "@netlify/functions"
 import { Webhook } from 'svix'
 
 const SUPABASE_URL = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL
@@ -44,7 +43,7 @@ async function supabaseDelete(table: string, filter: string) {
   }
 }
 
-const handler: Handler = async (event: HandlerEvent) => {
+export const handler = async (event) => {
   if (event.httpMethod === 'OPTIONS') {
     return { statusCode: 204, headers: CORS, body: '' }
   }
@@ -121,5 +120,3 @@ const handler: Handler = async (event: HandlerEvent) => {
     }
   }
 }
-
-export { handler }
