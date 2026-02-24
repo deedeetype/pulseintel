@@ -282,6 +282,24 @@ async function stepCopyCompetitors(previousScanId: string, newScanId: string) {
 
 // Step 3: Analyze with Claude + write everything to Supabase (supports incremental scans)
 async function stepAnalyzeAndWrite(industry: string, scanId: string, companies: any[], news: any[], isRefresh?: boolean) {
+  // If refresh, fetch existing competitors to use in insights/alerts generation
+  let competitorNames: string[] = []
+  if (isRefresh) {
+    const res = await fetch(
+      `${SUPABASE_URL}/rest/v1/competitors?scan_id=eq.${scanId}&select=name`,
+      {
+        headers: {
+          'apikey': SUPABASE_KEY!,
+          'Authorization': `Bearer ${SUPABASE_KEY}`,
+        }
+      }
+    )
+    const existingCompetitors = await res.json()
+    competitorNames = existingCompetitors?.map((c: any) => c.name) || []
+  } else {
+    competitorNames = companies.map((c: any) => c.name)
+  }
+  
   // Run AI analyses (skip competitors analysis if incremental scan)
   const promises: Promise<string>[] = []
   
@@ -297,20 +315,32 @@ JSON array only: [{"name":"X","threat_score":7.5,"activity_level":"high","descri
   // Always generate new insights and alerts (even on refresh)
   promises.push(
     poeRequest(`3-4 strategic insights for ${industry}.
-Companies: ${companies.slice(0,5).map((c: any) => c.name).join(', ')}
+Companies: ${competitorNames.slice(0,5).join(', ')}
 News: ${news.slice(0,8).map((n: any) => n.title).join('; ')}
 JSON: [{"type":"threat|opportunity|trend|recommendation","title":"X","description":"2-3 sentences","confidence":0.85,"impact":"high","action_items":["X"]}]`),
     
     poeRequest(`5-7 alerts from ${industry} news.
+Companies: ${competitorNames.slice(0,8).join(', ')}
 News: ${news.slice(0,12).map((n: any) => n.title).join('; ')}
 JSON: [{"title":"X","description":"Context","priority":"critical|attention|info","category":"funding|product|hiring|news|market"}]`)
   )
 
   const results = await Promise.all(promises)
   
-  const analyzed = isRefresh ? [] : parseJsonArray(results.shift() || '[]')
-  const insights = parseJsonArray(results[isRefresh ? 0 : 1])
-  const alerts = parseJsonArray(results[isRefresh ? 1 : 2])
+  let analyzed: any[] = []
+  let insights: any[] = []
+  let alerts: any[] = []
+  
+  if (isRefresh) {
+    // Only 2 promises: insights, alerts
+    insights = parseJsonArray(results[0])
+    alerts = parseJsonArray(results[1])
+  } else {
+    // 3 promises: competitors, insights, alerts
+    analyzed = parseJsonArray(results[0])
+    insights = parseJsonArray(results[1])
+    alerts = parseJsonArray(results[2])
+  }
 
   // Fetch stock prices via Perplexity for public companies (only on first scan, not refresh)
   const publicCompanies = analyzed.filter((c: any) => c.stock_ticker)
