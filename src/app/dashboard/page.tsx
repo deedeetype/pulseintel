@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
-import { useUser, UserButton } from '@clerk/nextjs'
+import { useUser, UserButton, useAuth } from '@clerk/nextjs'
 import { useScans } from '@/hooks/useScans'
 import { useCompetitors } from '@/hooks/useCompetitors'
 import { useAlerts } from '@/hooks/useAlerts'
@@ -20,6 +20,7 @@ import { useNewsFeed } from '@/hooks/useNewsFeed'
 
 export default function Dashboard() {
   const { user, isLoaded } = useUser()
+  const { getToken } = useAuth()
   const { settings, t } = useSettings()
   const [activeTab, setActiveTab] = useState('overview')
   
@@ -663,16 +664,18 @@ export default function Dashboard() {
                 // TODO SECURITY: Replace with user-scoped policy after Clerk auth
                 // Currently uses public DELETE policy (demo mode only)
                 // Delete from Supabase (cascade will handle related data)
+                const token = await getToken({ template: 'supabase' })
                 const res = await fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/rest/v1/scans?id=eq.${id}`, {
                   method: 'DELETE',
                   headers: {
                     'apikey': process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '',
-                    'Authorization': `Bearer ${process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY}`,
+                    'Authorization': `Bearer ${token || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY}`,
                   }
                 })
                 
                 if (!res.ok) {
-                  throw new Error(`Delete failed: ${res.status}`)
+                  const text = await res.text()
+                  throw new Error(`Delete failed: ${res.status} ${text}`)
                 }
                 
                 setScanProgress('✅ Profile deleted')
