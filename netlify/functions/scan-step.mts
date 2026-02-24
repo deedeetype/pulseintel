@@ -195,7 +195,7 @@ For each competitor provide:
 
 JSON array: [{name, domain, description, position}]`
   } else {
-    prompt = `List the top ${max} most significant companies in the ${industry} industry (2025-2026).${regionStr} Include market leaders and notable startups.${watchlistStr} JSON array: [{name, domain, description (1-2 sentences), position}]`
+    prompt = `List the top ${max} most significant companies in the ${industry} industry as of 2025-2026.${regionStr} Include market leaders and notable startups. Use current data only.${watchlistStr} JSON array: [{name, domain, description (1-2 sentences), position}]`
   }
 
   const res = await fetch('https://api.perplexity.ai/chat/completions', {
@@ -227,7 +227,7 @@ async function stepNews(industry: string) {
       model: 'sonar-pro',
       messages: [
         { role: 'system', content: 'News analyst. Respond with valid JSON only.' },
-        { role: 'user', content: `15 most recent ${industry} news stories (last 30 days). JSON array: [{title, summary, source, url, tags}]` }
+        { role: 'user', content: `15 most recent ${industry} news stories from the last 6 months maximum (prioritize last 30 days). Only include articles published in 2025 or 2026. JSON array: [{title, summary, source, url, tags, published_at}]` }
       ],
       temperature: 0.4, max_tokens: 3000
     })
@@ -474,8 +474,8 @@ JSON object with ticker as key: {"AAPL": {"price": 178.50, "currency": "USD", "c
       body: JSON.stringify({
         model: 'sonar-pro',
         messages: [
-          { role: 'system', content: 'Market research analyst. Respond with valid JSON only. No markdown, no code fences. Use real, sourced data from recent industry reports.' },
-          { role: 'user', content: `Provide detailed market analytics data for the ${industry} industry based on real market research reports and data.
+          { role: 'system', content: 'Market research analyst. Respond with valid JSON only. No markdown, no code fences. Use real, sourced data from recent industry reports (2024-2026 only).' },
+          { role: 'user', content: `Provide detailed market analytics data for the ${industry} industry based on real market research reports and data from 2024-2026 only. Do not use outdated data.
 
 Include a "sources" array with the report names and URLs you used.
 
