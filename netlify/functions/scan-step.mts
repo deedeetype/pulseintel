@@ -130,11 +130,13 @@ JSON: {"company_name": "X", "industry": "Y", "description": "1-2 sentence descri
 }
 
 // Step 0: Create scan record OR reuse existing profile (incremental model)
-async function stepInit(industry: string, companyUrl?: string, companyName?: string) {
+async function stepInit(industry: string, companyUrl?: string, companyName?: string, userId?: string) {
+  const actualUserId = userId || DEMO_USER_ID
+  
   // Check for existing completed profile with same industry + company_url
   if (companyUrl) {
     const res = await fetch(
-      `${SUPABASE_URL}/rest/v1/scans?user_id=eq.${DEMO_USER_ID}&industry=eq.${encodeURIComponent(industry)}&company_url=eq.${encodeURIComponent(companyUrl)}&status=eq.completed&order=created_at.desc&limit=1`,
+      `${SUPABASE_URL}/rest/v1/scans?user_id=eq.${actualUserId}&industry=eq.${encodeURIComponent(industry)}&company_url=eq.${encodeURIComponent(companyUrl)}&status=eq.completed&order=created_at.desc&limit=1`,
       {
         headers: {
           'apikey': SUPABASE_KEY!,
@@ -162,7 +164,7 @@ async function stepInit(industry: string, companyUrl?: string, companyName?: str
   
   // Create new profile
   const [scan] = await supabasePost('scans', {
-    user_id: DEMO_USER_ID,
+    user_id: actualUserId,
     industry,
     status: 'running',
     company_url: companyUrl || null,
@@ -576,7 +578,7 @@ const handler: Handler = async (event: HandlerEvent, context: HandlerContext) =>
   }
 
   try {
-    const { step, industry, scanId, companies, news, companyUrl, companyName, maxCompetitors, regions, watchlist, isRefresh } = JSON.parse(event.body || '{}')
+    const { step, industry, scanId, companies, news, companyUrl, companyName, maxCompetitors, regions, watchlist, isRefresh, userId } = JSON.parse(event.body || '{}')
     
     if (!step) {
       return { statusCode: 400, headers: CORS, body: JSON.stringify({ error: 'step required' }) }
@@ -597,7 +599,7 @@ const handler: Handler = async (event: HandlerEvent, context: HandlerContext) =>
         result = await stepDetect(companyUrl)
         break
       case 'init':
-        result = await stepInit(industry, companyUrl, companyName)
+        result = await stepInit(industry, companyUrl, companyName, userId)
         break
       case 'competitors':
         result = await stepCompetitors(industry, scanId, companyUrl, maxCompetitors, regions, watchlist)

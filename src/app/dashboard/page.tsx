@@ -146,7 +146,12 @@ export default function Dashboard() {
       // Step 0: Create scan record OR reuse existing profile
       setScanProgress(`Initializing ${industry} scan...`)
       setScanProgressPercent(10)
-      const initResult = await callStep('init', { industry, companyUrl: companyUrl || undefined, companyName: companyName || undefined })
+      const initResult = await callStep('init', { 
+        industry, 
+        companyUrl: companyUrl || undefined, 
+        companyName: companyName || undefined,
+        userId: user?.id // Pass Clerk user ID
+      })
       const { scanId, isRefresh } = initResult
       
       let companies: any[] = []
