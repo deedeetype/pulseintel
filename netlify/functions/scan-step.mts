@@ -285,19 +285,39 @@ async function stepAnalyzeAndWrite(industry: string, scanId: string, companies: 
   // If refresh, fetch existing competitors to use in insights/alerts generation
   let competitorNames: string[] = []
   if (isRefresh) {
-    const res = await fetch(
-      `${SUPABASE_URL}/rest/v1/competitors?scan_id=eq.${scanId}&select=name`,
-      {
-        headers: {
-          'apikey': SUPABASE_KEY!,
-          'Authorization': `Bearer ${SUPABASE_KEY}`,
+    try {
+      const res = await fetch(
+        `${SUPABASE_URL}/rest/v1/competitors?scan_id=eq.${scanId}&select=name`,
+        {
+          headers: {
+            'apikey': SUPABASE_KEY!,
+            'Authorization': `Bearer ${SUPABASE_KEY}`,
+          }
         }
+      )
+      if (!res.ok) {
+        console.error('Failed to fetch competitors:', res.status, await res.text())
+      } else {
+        const existingCompetitors = await res.json()
+        competitorNames = existingCompetitors?.map((c: any) => c.name) || []
+        console.log('Fetched competitors for refresh:', competitorNames.length, competitorNames.slice(0, 3))
       }
-    )
-    const existingCompetitors = await res.json()
-    competitorNames = existingCompetitors?.map((c: any) => c.name) || []
+    } catch (e) {
+      console.error('Error fetching competitors:', e)
+    }
   } else {
     competitorNames = companies.map((c: any) => c.name)
+  }
+  
+  // Fallback: if no competitors found, skip insights/alerts generation
+  if (competitorNames.length === 0 && news.length === 0) {
+    console.warn('No competitors or news - skipping insights/alerts')
+    return {
+      competitors: 0,
+      alerts: 0,
+      insights: 0,
+      news: 0
+    }
   }
   
   // Run AI analyses (skip competitors analysis if incremental scan)
@@ -583,10 +603,11 @@ const handler: Handler = async (event: HandlerEvent, context: HandlerContext) =>
         result = await stepNews(industry)
         break
       case 'analyze':
-        if (!scanId || !companies || !news) {
-          return { statusCode: 400, headers: CORS, body: JSON.stringify({ error: 'scanId, companies, news required for analyze step' }) }
+        if (!scanId) {
+          return { statusCode: 400, headers: CORS, body: JSON.stringify({ error: 'scanId required for analyze step' }) }
         }
-        result = await stepAnalyzeAndWrite(industry, scanId, companies, news, isRefresh)
+        // companies can be empty array for refresh mode
+        result = await stepAnalyzeAndWrite(industry, scanId, companies || [], news || [], isRefresh)
         break
       default:
         return { statusCode: 400, headers: CORS, body: JSON.stringify({ error: `Unknown step: ${step}` }) }
