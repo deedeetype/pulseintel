@@ -59,7 +59,7 @@ export const handler = async (event) => {
       'svix-id': event.headers['svix-id'],
       'svix-timestamp': event.headers['svix-timestamp'],
       'svix-signature': event.headers['svix-signature'],
-    }) as any
+    })
 
     console.log('Clerk webhook event:', payload.type, payload.data?.id)
 
