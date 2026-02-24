@@ -463,7 +463,10 @@ JSON object with ticker as key: {"AAPL": {"price": 178.50, "currency": "USD", "c
     if (currentScan && currentScan.length > 0) {
       industryAnalytics = currentScan[0].industry_analytics
     }
-  } else {
+  }
+  
+  // Generate analytics if not found (either new scan or missing from refresh)
+  if (!industryAnalytics) {
     // Generate fresh industry analytics via Perplexity (for real data + citations)
     const analyticsRes = await fetch('https://api.perplexity.ai/chat/completions', {
       method: 'POST',
