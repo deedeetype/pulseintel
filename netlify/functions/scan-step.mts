@@ -129,17 +129,9 @@ JSON: {"company_name": "X", "industry": "Y", "description": "1-2 sentence descri
   return { company_name: 'Unknown', industry: 'Technology', description: '' }
 }
 
-// Step 0: Create scan record + check for previous scan
+// Step 0: Create scan record OR reuse existing profile (incremental model)
 async function stepInit(industry: string, companyUrl?: string, companyName?: string) {
-  const [scan] = await supabasePost('scans', {
-    user_id: DEMO_USER_ID,
-    industry,
-    status: 'running',
-    company_url: companyUrl || null,
-    company_name: companyName || null
-  })
-  
-  // Check for previous completed scan with same industry + company_url
+  // Check for existing completed profile with same industry + company_url
   if (companyUrl) {
     const res = await fetch(
       `${SUPABASE_URL}/rest/v1/scans?user_id=eq.${DEMO_USER_ID}&industry=eq.${encodeURIComponent(industry)}&company_url=eq.${encodeURIComponent(companyUrl)}&status=eq.completed&order=created_at.desc&limit=1`,
@@ -150,17 +142,35 @@ async function stepInit(industry: string, companyUrl?: string, companyName?: str
         }
       }
     )
-    const previousScans = await res.json()
-    if (previousScans && previousScans.length > 0 && previousScans[0].id !== scan.id) {
+    const existingProfiles = await res.json()
+    
+    if (existingProfiles && existingProfiles.length > 0) {
+      // REUSE existing profile - update status and timestamps
+      const existingScan = existingProfiles[0]
+      await supabasePatch('scans', `id=eq.${existingScan.id}`, {
+        status: 'running',
+        last_refreshed_at: new Date().toISOString(),
+        refresh_count: (existingScan.refresh_count || 0) + 1
+      })
+      
       return { 
-        scanId: scan.id, 
-        previousScanId: previousScans[0].id,
-        hasExistingData: true
+        scanId: existingScan.id, 
+        isRefresh: true
       }
     }
   }
   
-  return { scanId: scan.id, hasExistingData: false }
+  // Create new profile
+  const [scan] = await supabasePost('scans', {
+    user_id: DEMO_USER_ID,
+    industry,
+    status: 'running',
+    company_url: companyUrl || null,
+    company_name: companyName || null,
+    refresh_count: 0
+  })
+  
+  return { scanId: scan.id, isRefresh: false }
 }
 
 // Step 1: Find competitors via Perplexity
@@ -270,12 +280,13 @@ async function stepCopyCompetitors(previousScanId: string, newScanId: string) {
   return { count: 0 }
 }
 
-// Step 3: Analyze with Claude + write everything to Supabase
-async function stepAnalyzeAndWrite(industry: string, scanId: string, companies: any[], news: any[], skipCompetitors?: boolean, skipAnalytics?: boolean) {
-  // Run AI analyses (skip competitors if incremental scan)
+// Step 3: Analyze with Claude + write everything to Supabase (supports incremental scans)
+async function stepAnalyzeAndWrite(industry: string, scanId: string, companies: any[], news: any[], isRefresh?: boolean) {
+  // Run AI analyses (skip competitors analysis if incremental scan)
   const promises: Promise<string>[] = []
   
-  if (!skipCompetitors) {
+  // Only analyze competitors on first scan (not on refresh)
+  if (!isRefresh) {
     promises.push(
       poeRequest(`Analyze ${industry} companies. Each: threat_score(0-10), activity_level(low/medium/high), description, employee_count, stock_ticker (if publicly traded, use format like "AAPL", "MSFT", "TSE:RY" for Toronto, "EPA:BNP" for Paris etc. Use null if private).
 Companies: ${companies.map((c: any) => c.name).join(', ')}
@@ -283,6 +294,7 @@ JSON array only: [{"name":"X","threat_score":7.5,"activity_level":"high","descri
     )
   }
   
+  // Always generate new insights and alerts (even on refresh)
   promises.push(
     poeRequest(`3-4 strategic insights for ${industry}.
 Companies: ${companies.slice(0,5).map((c: any) => c.name).join(', ')}
@@ -296,11 +308,11 @@ JSON: [{"title":"X","description":"Context","priority":"critical|attention|info"
 
   const results = await Promise.all(promises)
   
-  const analyzed = skipCompetitors ? [] : parseJsonArray(results.shift() || '[]')
-  const insights = parseJsonArray(results[0])
-  const alerts = parseJsonArray(results[1])
+  const analyzed = isRefresh ? [] : parseJsonArray(results.shift() || '[]')
+  const insights = parseJsonArray(results[isRefresh ? 0 : 1])
+  const alerts = parseJsonArray(results[isRefresh ? 1 : 2])
 
-  // Fetch stock prices via Perplexity for public companies
+  // Fetch stock prices via Perplexity for public companies (only on first scan, not refresh)
   const publicCompanies = analyzed.filter((c: any) => c.stock_ticker)
   let stockPrices: Record<string, { price: number; currency: string; change_percent: number }> = {}
   
@@ -333,8 +345,8 @@ JSON object with ticker as key: {"AAPL": {"price": 178.50, "currency": "USD", "c
     }
   }
 
-  // Write to Supabase (skip competitors if already copied)
-  const insertedCompetitors = !skipCompetitors && analyzed.length > 0 ? await supabasePost('competitors', 
+  // Write competitors to Supabase (only on first scan, not refresh)
+  const insertedCompetitors = !isRefresh && analyzed.length > 0 ? await supabasePost('competitors', 
     analyzed.map((c: any) => {
       const stockInfo = c.stock_ticker ? stockPrices[c.stock_ticker] : null
       return {
@@ -353,6 +365,7 @@ JSON object with ticker as key: {"AAPL": {"price": 178.50, "currency": "USD", "c
     })
   ) : []
 
+  // Always insert new alerts (accumulate over time)
   const insertedAlerts = alerts.length > 0 ? await supabasePost('alerts',
     alerts.map((a: any) => ({
       user_id: DEMO_USER_ID, scan_id: scanId,
@@ -362,6 +375,7 @@ JSON object with ticker as key: {"AAPL": {"price": 178.50, "currency": "USD", "c
     }))
   ) : []
 
+  // Always insert new insights (accumulate over time)
   const insertedInsights = insights.length > 0 ? await supabasePost('insights',
     insights.map((i: any) => ({
       user_id: DEMO_USER_ID, scan_id: scanId,
@@ -371,6 +385,7 @@ JSON object with ticker as key: {"AAPL": {"price": 178.50, "currency": "USD", "c
     }))
   ) : []
 
+  // Always insert new news (accumulate over time)
   const insertedNews = news.length > 0 ? await supabasePost('news_feed',
     news.map((n: any) => ({
       user_id: DEMO_USER_ID, scan_id: scanId,
@@ -380,27 +395,23 @@ JSON object with ticker as key: {"AAPL": {"price": 178.50, "currency": "USD", "c
     }))
   ) : []
 
-  // Generate or copy industry analytics
+  // Generate industry analytics (only on first scan, reuse on refresh)
   let industryAnalytics = null
   
-  if (skipAnalytics) {
-    // Copy analytics from previous scan (passed via companies parameter as special marker)
-    // Frontend should pass previousScanId in companies[0].previousScanId for this case
-    const previousScanIdForAnalytics = (companies[0] as any)?.previousScanId
-    if (previousScanIdForAnalytics) {
-      const res = await fetch(
-        `${SUPABASE_URL}/rest/v1/scans?id=eq.${previousScanIdForAnalytics}&select=industry_analytics`,
-        {
-          headers: {
-            'apikey': SUPABASE_KEY!,
-            'Authorization': `Bearer ${SUPABASE_KEY}`,
-          }
+  if (isRefresh) {
+    // Fetch existing analytics from current scan
+    const res = await fetch(
+      `${SUPABASE_URL}/rest/v1/scans?id=eq.${scanId}&select=industry_analytics`,
+      {
+        headers: {
+          'apikey': SUPABASE_KEY!,
+          'Authorization': `Bearer ${SUPABASE_KEY}`,
         }
-      )
-      const previousScan = await res.json()
-      if (previousScan && previousScan.length > 0) {
-        industryAnalytics = previousScan[0].industry_analytics
       }
+    )
+    const currentScan = await res.json()
+    if (currentScan && currentScan.length > 0) {
+      industryAnalytics = currentScan[0].industry_analytics
     }
   } else {
     // Generate fresh industry analytics via Perplexity (for real data + citations)
@@ -456,16 +467,41 @@ Use the actual known competitor names from this list where possible: ${analyzed.
     }
   }
 
-  // Mark scan as completed
-  await supabasePatch('scans', `id=eq.${scanId}`, {
-    status: 'completed',
-    completed_at: new Date().toISOString(),
-    competitors_count: insertedCompetitors.length,
-    alerts_count: insertedAlerts.length,
-    insights_count: insertedInsights.length,
-    news_count: insertedNews.length,
-    industry_analytics: industryAnalytics
-  })
+  // Mark scan as completed - increment counts for refresh, set for new scan
+  if (isRefresh) {
+    // Fetch current counts
+    const res = await fetch(
+      `${SUPABASE_URL}/rest/v1/scans?id=eq.${scanId}&select=alerts_count,insights_count,news_count`,
+      {
+        headers: {
+          'apikey': SUPABASE_KEY!,
+          'Authorization': `Bearer ${SUPABASE_KEY}`,
+        }
+      }
+    )
+    const currentScan = await res.json()
+    const current = currentScan[0] || { alerts_count: 0, insights_count: 0, news_count: 0 }
+    
+    // Increment counts
+    await supabasePatch('scans', `id=eq.${scanId}`, {
+      status: 'completed',
+      completed_at: new Date().toISOString(),
+      alerts_count: current.alerts_count + insertedAlerts.length,
+      insights_count: current.insights_count + insertedInsights.length,
+      news_count: current.news_count + insertedNews.length
+    })
+  } else {
+    // Set counts for new scan
+    await supabasePatch('scans', `id=eq.${scanId}`, {
+      status: 'completed',
+      completed_at: new Date().toISOString(),
+      competitors_count: insertedCompetitors.length,
+      alerts_count: insertedAlerts.length,
+      insights_count: insertedInsights.length,
+      news_count: insertedNews.length,
+      industry_analytics: industryAnalytics
+    })
+  }
 
   return {
     competitors: insertedCompetitors.length,
@@ -487,14 +523,14 @@ const handler: Handler = async (event: HandlerEvent, context: HandlerContext) =>
   }
 
   try {
-    const { step, industry, scanId, companies, news, companyUrl, companyName, maxCompetitors, regions, watchlist, previousScanId, skipCompetitors, skipAnalytics } = JSON.parse(event.body || '{}')
+    const { step, industry, scanId, companies, news, companyUrl, companyName, maxCompetitors, regions, watchlist, isRefresh } = JSON.parse(event.body || '{}')
     
     if (!step) {
       return { statusCode: 400, headers: CORS, body: JSON.stringify({ error: 'step required' }) }
     }
 
-    // detect and copy-competitors steps don't need industry
-    if (step !== 'detect' && step !== 'copy-competitors' && !industry) {
+    // detect step doesn't need industry
+    if (step !== 'detect' && !industry) {
       return { statusCode: 400, headers: CORS, body: JSON.stringify({ error: 'industry required' }) }
     }
 
@@ -513,12 +549,6 @@ const handler: Handler = async (event: HandlerEvent, context: HandlerContext) =>
       case 'competitors':
         result = await stepCompetitors(industry, scanId, companyUrl, maxCompetitors, regions, watchlist)
         break
-      case 'copy-competitors':
-        if (!previousScanId || !scanId) {
-          return { statusCode: 400, headers: CORS, body: JSON.stringify({ error: 'previousScanId and scanId required for copy-competitors step' }) }
-        }
-        result = await stepCopyCompetitors(previousScanId, scanId)
-        break
       case 'news':
         result = await stepNews(industry)
         break
@@ -526,7 +556,7 @@ const handler: Handler = async (event: HandlerEvent, context: HandlerContext) =>
         if (!scanId || !companies || !news) {
           return { statusCode: 400, headers: CORS, body: JSON.stringify({ error: 'scanId, companies, news required for analyze step' }) }
         }
-        result = await stepAnalyzeAndWrite(industry, scanId, companies, news, skipCompetitors, skipAnalytics)
+        result = await stepAnalyzeAndWrite(industry, scanId, companies, news, isRefresh)
         break
       default:
         return { statusCode: 400, headers: CORS, body: JSON.stringify({ error: `Unknown step: ${step}` }) }

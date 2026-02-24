@@ -17,6 +17,9 @@ export interface Scan {
   company_url?: string
   company_name?: string
   industry_analytics?: any
+  last_refreshed_at?: string
+  refresh_count: number
+  updated_at: string
 }
 
 export function useScans(limit?: number) {

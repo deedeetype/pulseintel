@@ -11,7 +11,7 @@ import CompetitorsView from '@/components/CompetitorsView'
 import AlertsView from '@/components/AlertsView'
 import InsightsView from '@/components/InsightsView'
 import NewsFeedView from '@/components/NewsFeedView'
-import ScanHistoryView from '@/components/ScanHistoryView'
+import ProfilesView from '@/components/ProfilesView'
 import IndustryAnalyticsView from '@/components/IndustryAnalyticsView'
 import SettingsView from '@/components/SettingsView'
 import { useSettings } from '@/contexts/SettingsContext'
@@ -133,22 +133,29 @@ export default function Dashboard() {
         return
       }
 
-      // Step 0: Create scan record + check for previous scan
+      // Step 0: Create scan record OR reuse existing profile
       setScanProgress(`Initializing ${industry} scan...`)
       const initResult = await callStep('init', { industry, companyUrl: companyUrl || undefined, companyName: companyName || undefined })
-      const { scanId, previousScanId, hasExistingData } = initResult
+      const { scanId, isRefresh } = initResult
       
       let companies: any[] = []
       let compCount = 0
       
-      // Step 1: Find competitors OR copy from previous scan
-      if (hasExistingData && previousScanId) {
-        setScanProgress('♻️ Incremental scan detected. Copying existing competitors...')
-        const { count } = await callStep('copy-competitors', { previousScanId, scanId })
-        compCount = count
-        setScanProgress(`✓ Copied ${compCount} competitors from previous scan.`)
-        // For analyze step, we need to pass a dummy companies array with previousScanId marker
-        companies = [{ previousScanId }]
+      // Step 1: Find competitors (skip if refreshing existing profile)
+      if (isRefresh) {
+        setScanProgress(`🔄 Refreshing ${industry} data...`)
+        // Fetch existing competitor count for display
+        const res = await fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/rest/v1/competitors?scan_id=eq.${scanId}&select=id`, {
+          headers: {
+            'apikey': process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '',
+            'Authorization': `Bearer ${process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY}`,
+          }
+        })
+        const existingCompetitors = await res.json()
+        compCount = existingCompetitors?.length || 0
+        setScanProgress(`✓ Reusing existing ${compCount} competitors from profile.`)
+        // Pass empty companies array for analyze step
+        companies = []
       } else {
         setScanProgress('🔍 Finding competitors via AI...')
         const watchlist = settings.scanPreferences.watchlist || []
@@ -169,20 +176,22 @@ export default function Dashboard() {
       setScanProgress(`📰 Collecting recent ${industry} news...`)
       const { news, count: newsCount } = await callStep('news', { industry })
       
-      // Step 3: Analyze + write to Supabase (skip competitors/analytics if incremental)
+      // Step 3: Analyze + write to Supabase (incremental if refresh)
       setScanProgress(`✓ ${newsCount} news items. 🧠 AI analysis...`)
       const results = await callStep('analyze', { 
         industry, 
         scanId, 
         companies, 
         news,
-        skipCompetitors: hasExistingData,
-        skipAnalytics: hasExistingData
+        isRefresh
       })
       
       // Done!
-      const scanType = hasExistingData ? 'Incremental' : 'Full'
-      setScanProgress(`✅ ${scanType} scan complete! ${compCount} competitors, ${results.alerts} alerts, ${results.insights} insights, ${results.news} news`)
+      if (isRefresh) {
+        setScanProgress(`✅ Profile refreshed! ${results.alerts} new alerts, ${results.insights} new insights, ${results.news} new articles`)
+      } else {
+        setScanProgress(`✅ Scan complete! ${compCount} competitors, ${results.alerts} alerts, ${results.insights} insights, ${results.news} news`)
+      }
       
       await refetchScans()
       setSelectedScanId(scanId)
@@ -240,7 +249,7 @@ export default function Dashboard() {
             { id: 'analytics', label: t('nav.analytics'), icon: '📊' },
             { id: 'alerts', label: t('nav.alerts'), icon: '🔔', badge: alerts.filter(a => !a.read).length },
             { id: 'insights', label: t('nav.insights'), icon: '🤖' },
-            { id: 'myscans', label: t('nav.myscans'), icon: '🗂️' },
+            { id: 'profiles', label: t('nav.profiles'), icon: '🗂️' },
             { id: 'settings', label: t('nav.settings'), icon: '⚙️' },
           ].map((item) => (
             <button
@@ -330,18 +339,77 @@ export default function Dashboard() {
                     className="bg-slate-800 text-white px-3 py-2 rounded-lg border border-slate-700 focus:border-indigo-500 focus:outline-none text-sm max-w-[220px] truncate"
                   >
                     {scans.map((scan) => {
-                      const date = new Date(scan.created_at).toLocaleDateString('en-US', {
-                        month: 'short', day: 'numeric'
-                      })
-                      const label = scan.company_name || scan.industry
+                      const label = scan.company_name 
+                        ? `${scan.company_name} (${scan.industry})` 
+                        : scan.industry
                       return (
                         <option key={scan.id} value={scan.id}>
-                          {label} — {date}
+                          {label}
                         </option>
                       )
                     })}
                   </select>
                 </>
+              )}
+              
+              {selectedScan && (
+                <button
+                  onClick={async () => {
+                    if (!selectedScan) return
+                    setIsScanning(true)
+                    try {
+                      setScanProgress('🔄 Refreshing profile data...')
+                      
+                      // Step 0: Init (will detect existing profile)
+                      const { scanId, isRefresh } = await callStep('init', { 
+                        industry: selectedScan.industry, 
+                        companyUrl: selectedScan.company_url || undefined,
+                        companyName: selectedScan.company_name || undefined
+                      })
+                      
+                      // Step 1: News
+                      setScanProgress('📰 Collecting latest news...')
+                      const { news, count: newsCount } = await callStep('news', { industry: selectedScan.industry })
+                      
+                      // Step 2: Analyze (refresh mode)
+                      setScanProgress('🧠 Generating alerts & insights...')
+                      const results = await callStep('analyze', { 
+                        industry: selectedScan.industry, 
+                        scanId, 
+                        companies: [], 
+                        news,
+                        isRefresh: true 
+                      })
+                      
+                      setScanProgress(`✅ Refreshed! ${results.alerts} new alerts, ${results.insights} insights, ${results.news} articles`)
+                      
+                      await refetchScans()
+                      
+                      setTimeout(() => {
+                        setIsScanning(false)
+                        setScanProgress('')
+                      }, 2500)
+                      
+                    } catch (error: any) {
+                      setScanProgress('❌ Error: ' + error.message)
+                      setTimeout(() => setIsScanning(false), 3000)
+                    }
+                  }}
+                  disabled={isScanning}
+                  className="bg-cyan-600 hover:bg-cyan-700 disabled:bg-slate-700 text-white px-4 py-2 rounded-lg font-medium transition flex items-center gap-2"
+                >
+                  {isScanning ? (
+                    <>
+                      <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                      Refreshing...
+                    </>
+                  ) : (
+                    <>
+                      <span>🔄</span>
+                      Refresh Current
+                    </>
+                  )}
+                </button>
               )}
               
               <button
@@ -532,12 +600,23 @@ export default function Dashboard() {
           <NewsFeedView scanId={selectedScanId} />
         )}
 
-        {activeTab === 'myscans' && (
-          <ScanHistoryView 
+        {activeTab === 'profiles' && (
+          <ProfilesView 
             scans={scans} 
             loading={loadingScans} 
             selectedScanId={selectedScanId}
             onSelectScan={(id) => { setSelectedScanId(id); setActiveTab('overview') }}
+            onRefreshProfile={(id) => {
+              const profile = scans.find(s => s.id === id)
+              if (profile) {
+                setCompanyUrl(profile.company_url || '')
+                setScanIndustry(profile.industry)
+                setShowScanModal(true)
+              }
+            }}
+            onFullRescan={(id) => {
+              alert('Full rescan: Delete this profile and create a new one with the same parameters.')
+            }}
           />
         )}
 
@@ -587,6 +666,16 @@ export default function Dashboard() {
               <label className="block text-sm font-medium text-slate-400 mb-2">
                 Industry {companyUrl && <span className="text-indigo-400 text-xs ml-1">(auto-detected from URL)</span>}
               </label>
+              
+              {/* Existing profile detection */}
+              {companyUrl && scanIndustry !== 'auto' && scans.some(s => s.company_url === companyUrl && s.industry === scanIndustry && s.status === 'completed') && (
+                <div className="mb-3 p-3 bg-indigo-500/10 border border-indigo-500/30 rounded-lg">
+                  <p className="text-indigo-300 text-sm">
+                    ✓ A profile for this industry already exists. Click <strong>Refresh</strong> to update with latest data.
+                  </p>
+                </div>
+              )}
+              
               <select
                 value={scanIndustry}
                 onChange={(e) => setScanIndustry(e.target.value)}
