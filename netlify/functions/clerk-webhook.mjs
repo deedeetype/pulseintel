@@ -11,11 +11,11 @@ const CORS = {
   'Content-Type': 'application/json'
 }
 
-async function supabaseUpsert(table: string, data: any) {
+async function supabaseUpsert(table, data) {
   const res = await fetch(`${SUPABASE_URL}/rest/v1/${table}`, {
     method: 'POST',
     headers: {
-      'apikey': SUPABASE_KEY!,
+      'apikey': SUPABASE_KEY,
       'Authorization': `Bearer ${SUPABASE_KEY}`,
       'Content-Type': 'application/json',
       'Prefer': 'resolution=merge-duplicates'
@@ -29,11 +29,11 @@ async function supabaseUpsert(table: string, data: any) {
   return res.json()
 }
 
-async function supabaseDelete(table: string, filter: string) {
+async function supabaseDelete(table, filter) {
   const res = await fetch(`${SUPABASE_URL}/rest/v1/${table}?${filter}`, {
     method: 'DELETE',
     headers: {
-      'apikey': SUPABASE_KEY!,
+      'apikey': SUPABASE_KEY,
       'Authorization': `Bearer ${SUPABASE_KEY}`,
     }
   })
@@ -48,17 +48,17 @@ export const handler = async (event) => {
     return { statusCode: 204, headers: CORS, body: '' }
   }
   
-  if (event.httpMethod !== 'POST') {
+  if (event.httpMethod == 'POST') {
     return { statusCode: 405, headers: CORS, body: JSON.stringify({ error: 'POST only' }) }
   }
 
   try {
     // Verify webhook signature
-    const wh = new Webhook(CLERK_WEBHOOK_SECRET!)
-    const payload = wh.verify(event.body!, {
-      'svix-id': event.headers['svix-id']!,
-      'svix-timestamp': event.headers['svix-timestamp']!,
-      'svix-signature': event.headers['svix-signature']!,
+    const wh = new Webhook(CLERK_WEBHOOK_SECRET)
+    const payload = wh.verify(event.body, {
+      'svix-id': event.headers['svix-id'],
+      'svix-timestamp': event.headers['svix-timestamp'],
+      'svix-signature': event.headers['svix-signature'],
     }) as any
 
     console.log('Clerk webhook event:', payload.type, payload.data?.id)
@@ -111,7 +111,7 @@ export const handler = async (event) => {
       body: JSON.stringify({ success: true, eventType })
     }
 
-  } catch (error: any) {
+  } catch (error) {
     console.error('Webhook error:', error)
     return {
       statusCode: 400,
