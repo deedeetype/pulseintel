@@ -69,7 +69,7 @@ export default function Dashboard() {
   const { competitors, loading: loadingCompetitors } = useCompetitors(selectedScanId)
   const { alerts, loading: loadingAlerts, markAsRead } = useAlerts(selectedScanId)
   const { insights, loading: loadingInsights } = useInsights(selectedScanId)
-  const { unreadCount: unreadNewsCount } = useNewsFeed()
+  const { unreadCount: unreadNewsCount } = useNewsFeed(selectedScanId)
   
   const selectedScan = scans.find(s => s.id === selectedScanId)
 
