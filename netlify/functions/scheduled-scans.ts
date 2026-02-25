@@ -6,7 +6,7 @@
  * Can also be invoked manually via POST for testing
  */
 
-import type { Handler, HandlerEvent } from "@netlify/functions"
+import type { Handler, HandlerEvent, Config } from "@netlify/functions"
 
 const CORS_HEADERS = {
   'Access-Control-Allow-Origin': '*',
@@ -209,4 +209,6 @@ export const handler: Handler = async (event: HandlerEvent) => {
 
 // Netlify Scheduled Function Config
 // Runs every hour at minute 0
-export const schedule = "0 * * * *"
+export const config: Config = {
+  schedule: "0 * * * *"
+}
