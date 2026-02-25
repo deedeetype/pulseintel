@@ -9,6 +9,9 @@
   # Increase timeout to 26 seconds (requires Pro plan)
   node_bundler = "esbuild"
   directory = "netlify/functions"
+
+[functions.scheduled-scans]
+  schedule = "*/5 * * * *"
   
 [[redirects]]
   from = "/.netlify/functions/*"
