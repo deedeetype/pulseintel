@@ -46,19 +46,8 @@ function useScrollAnimation() {
   return { elementRef, isVisible }
 }
 
-const progressMessages = [
-  { threshold: 0, message: "🚀 Starting your journey...", color: "from-indigo-500" },
-  { threshold: 15, message: "👀 Discovering the power of AI intelligence", color: "from-indigo-500" },
-  { threshold: 30, message: "⚡ See how we scan thousands of sources", color: "from-purple-500" },
-  { threshold: 50, message: "🎯 Real-time alerts keep you ahead", color: "from-purple-500" },
-  { threshold: 70, message: "📊 Data becomes actionable insights", color: "from-pink-500" },
-  { threshold: 85, message: "✨ Almost there! See why teams love us", color: "from-pink-500" },
-  { threshold: 95, message: "🎉 Ready to get started?", color: "from-indigo-600" }
-]
-
 export default function DemoPage() {
   const [scrollProgress, setScrollProgress] = useState(0)
-  const [currentMessage, setCurrentMessage] = useState(progressMessages[0])
   const containerRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -68,88 +57,24 @@ export default function DemoPage() {
       const docHeight = document.documentElement.scrollHeight - window.innerHeight
       const progress = (scrollTop / docHeight) * 100
       setScrollProgress(progress)
-
-      // Update message based on scroll progress
-      const newMessage = [...progressMessages]
-        .reverse()
-        .find(msg => progress >= msg.threshold) || progressMessages[0]
-      
-      if (newMessage.threshold !== currentMessage.threshold) {
-        setCurrentMessage(newMessage)
-      }
     }
 
     window.addEventListener('scroll', handleScroll)
     return () => window.removeEventListener('scroll', handleScroll)
-  }, [currentMessage])
+  }, [])
 
   return (
     <div ref={containerRef} className="min-h-screen bg-gradient-to-br from-slate-950 via-indigo-950 to-slate-900">
-      {/* Fixed Progress Bar with Message */}
-      <div className="fixed top-0 left-0 w-full z-50">
-        {/* Progress bar */}
-        <div className="h-1 bg-slate-800 relative overflow-hidden">
-          <div 
-            className={`h-full bg-gradient-to-r ${currentMessage.color} to-purple-500 transition-all duration-500 ease-out relative`}
-            style={{ width: `${scrollProgress}%` }}
-          >
-            {/* Shimmer effect */}
-            <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/30 to-transparent animate-shimmer" 
-                 style={{ 
-                   backgroundSize: '200% 100%',
-                   animation: 'shimmer 2s infinite'
-                 }} 
-            />
-          </div>
-        </div>
-        
-        {/* Message banner */}
-        <div className="bg-gradient-to-r from-slate-900/95 via-slate-900/98 to-slate-900/95 backdrop-blur-md border-b border-slate-800/50">
-          <div className="container mx-auto px-4 py-2 flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="relative">
-                <div className="w-2 h-2 bg-indigo-400 rounded-full animate-pulse" />
-                <div className="absolute inset-0 w-2 h-2 bg-indigo-400 rounded-full animate-ping" />
-              </div>
-              <span className="text-slate-300 text-sm font-medium animate-fade-in">
-                {currentMessage.message}
-              </span>
-            </div>
-            <div className="flex items-center gap-2">
-              <span className="text-slate-500 text-xs font-mono">
-                {Math.round(scrollProgress)}%
-              </span>
-              <div className="w-12 h-1.5 bg-slate-800 rounded-full overflow-hidden">
-                <div 
-                  className={`h-full bg-gradient-to-r ${currentMessage.color} to-purple-500 transition-all duration-500`}
-                  style={{ width: `${scrollProgress}%` }}
-                />
-              </div>
-            </div>
-          </div>
-        </div>
+      {/* Fixed Progress Bar */}
+      <div className="fixed top-0 left-0 w-full h-1 bg-slate-800 z-50">
+        <div 
+          className="h-full bg-gradient-to-r from-indigo-500 to-purple-500 transition-all duration-300"
+          style={{ width: `${scrollProgress}%` }}
+        />
       </div>
 
-      {/* Add keyframes for shimmer animation */}
-      <style jsx>{`
-        @keyframes shimmer {
-          0% { background-position: -200% 0; }
-          100% { background-position: 200% 0; }
-        }
-        @keyframes fade-in {
-          from { opacity: 0; transform: translateY(-4px); }
-          to { opacity: 1; transform: translateY(0); }
-        }
-        .animate-shimmer {
-          animation: shimmer 2s infinite;
-        }
-        .animate-fade-in {
-          animation: fade-in 0.4s ease-out;
-        }
-      `}</style>
-
-      {/* Header - adjusted z-index and top positioning */}
-      <nav className="sticky top-[49px] z-40 border-b border-slate-800/50 backdrop-blur-lg bg-slate-900/80">
+      {/* Header */}
+      <nav className="sticky top-0 z-40 border-b border-slate-800/50 backdrop-blur-lg bg-slate-900/80">
         <div className="container mx-auto px-4 py-4 flex items-center justify-between">
           <Link href="/" className="flex items-center gap-3">
             <Image src="/logo.svg" alt="PulseIntel" width={32} height={32} />
