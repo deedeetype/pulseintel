@@ -1,0 +1,38 @@
+<svg width="512" height="512" viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="grad1" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#6366f1;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#a855f7;stop-opacity:1" />
+    </linearGradient>
+    <linearGradient id="grad2" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" style="stop-color:#818cf8;stop-opacity:0.8" />
+      <stop offset="100%" style="stop-color:#c084fc;stop-opacity:0.8" />
+    </linearGradient>
+  </defs>
+  
+  <!-- Background circle -->
+  <circle cx="256" cy="256" r="240" fill="url(#grad1)" opacity="0.1"/>
+  
+  <!-- Pulse waves -->
+  <path d="M 150 256 L 180 256 L 200 200 L 220 310 L 240 180 L 260 340 L 280 220 L 300 280 L 320 256 L 362 256" 
+        stroke="url(#grad2)" 
+        stroke-width="12" 
+        fill="none" 
+        stroke-linecap="round" 
+        stroke-linejoin="round"/>
+  
+  <!-- Magnifying glass circle -->
+  <circle cx="340" cy="200" r="60" 
+          stroke="url(#grad1)" 
+          stroke-width="10" 
+          fill="none"/>
+  
+  <!-- Magnifying glass handle -->
+  <line x1="385" y1="245" x2="420" y2="280" 
+        stroke="url(#grad1)" 
+        stroke-width="12" 
+        stroke-linecap="round"/>
+  
+  <!-- Inner glow -->
+  <circle cx="256" cy="256" r="200" fill="none" stroke="url(#grad1)" stroke-width="2" opacity="0.3"/>
+</svg>

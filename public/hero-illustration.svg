@@ -1,0 +1,71 @@
+<svg width="1200" height="600" viewBox="0 0 1200 600" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="heroGrad1" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#6366f1;stop-opacity:0.8" />
+      <stop offset="100%" style="stop-color:#a855f7;stop-opacity:0.6" />
+    </linearGradient>
+    <linearGradient id="heroGrad2" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#818cf8;stop-opacity:0.4" />
+      <stop offset="100%" style="stop-color:#6366f1;stop-opacity:0.1" />
+    </linearGradient>
+    <filter id="glow">
+      <feGaussianBlur stdDeviation="4" result="coloredBlur"/>
+      <feMerge>
+        <feMergeNode in="coloredBlur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+  
+  <rect width="1200" height="600" fill="#0f172a"/>
+  
+  <!-- Grid background -->
+  <g opacity="0.1">
+    <line x1="0" y1="150" x2="1200" y2="150" stroke="#6366f1" stroke-width="1"/>
+    <line x1="0" y1="300" x2="1200" y2="300" stroke="#6366f1" stroke-width="1"/>
+    <line x1="0" y1="450" x2="1200" y2="450" stroke="#6366f1" stroke-width="1"/>
+    <line x1="300" y1="0" x2="300" y2="600" stroke="#6366f1" stroke-width="1"/>
+    <line x1="600" y1="0" x2="600" y2="600" stroke="#6366f1" stroke-width="1"/>
+    <line x1="900" y1="0" x2="900" y2="600" stroke="#6366f1" stroke-width="1"/>
+  </g>
+  
+  <!-- Floating data cards -->
+  <g filter="url(#glow)">
+    <rect x="100" y="100" width="250" height="120" rx="12" fill="url(#heroGrad1)"/>
+    <rect x="850" y="380" width="280" height="140" rx="12" fill="url(#heroGrad1)"/>
+    <rect x="400" y="80" width="200" height="100" rx="12" fill="url(#heroGrad2)"/>
+  </g>
+  
+  <!-- Chart lines -->
+  <g opacity="0.6">
+    <polyline points="150,180 200,160 250,140 300,170 350,130" 
+              stroke="#818cf8" stroke-width="3" fill="none" stroke-linecap="round"/>
+    <polyline points="900,420 950,440 1000,410 1050,430 1100,400" 
+              stroke="#c084fc" stroke-width="3" fill="none" stroke-linecap="round"/>
+  </g>
+  
+  <!-- Central radar/pulse -->
+  <g transform="translate(600, 300)">
+    <circle r="150" fill="none" stroke="#6366f1" stroke-width="2" opacity="0.2"/>
+    <circle r="100" fill="none" stroke="#818cf8" stroke-width="2" opacity="0.4"/>
+    <circle r="50" fill="url(#heroGrad1)" opacity="0.6"/>
+    
+    <!-- Radar sweep -->
+    <line x1="0" y1="0" x2="0" y2="-140" stroke="#a855f7" stroke-width="4" opacity="0.7" stroke-linecap="round">
+      <animateTransform
+        attributeName="transform"
+        attributeType="XML"
+        type="rotate"
+        from="0"
+        to="360"
+        dur="4s"
+        repeatCount="indefinite"/>
+    </line>
+  </g>
+  
+  <!-- Glowing dots -->
+  <circle cx="200" cy="250" r="8" fill="#818cf8" opacity="0.8"/>
+  <circle cx="450" cy="150" r="6" fill="#c084fc" opacity="0.8"/>
+  <circle cx="950" cy="480" r="10" fill="#6366f1" opacity="0.8"/>
+  <circle cx="750" cy="120" r="7" fill="#a855f7" opacity="0.8"/>
+</svg>
