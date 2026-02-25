@@ -6,8 +6,9 @@ import { supabase } from '@/lib/supabase'
 import { useUser, UserButton, useAuth } from '@clerk/nextjs'
 import { useScans } from '@/hooks/useScans'
 import { useCompetitors } from '@/hooks/useCompetitors'
-import { useAlerts } from '@/hooks/useAlerts'
 import { useInsights } from '@/hooks/useInsights'
+import { useAlertsContext } from '@/contexts/AlertsContext'
+import { useNewsFeedContext } from '@/contexts/NewsFeedContext'
 import CompetitorsView from '@/components/CompetitorsView'
 import AlertsView from '@/components/AlertsView'
 import InsightsView from '@/components/InsightsView'
@@ -16,7 +17,6 @@ import ProfilesView from '@/components/ProfilesView'
 import IndustryAnalyticsView from '@/components/IndustryAnalyticsView'
 import SettingsView from '@/components/SettingsView'
 import { useSettings } from '@/contexts/SettingsContext'
-import { useNewsFeed } from '@/hooks/useNewsFeed'
 
 export default function Dashboard() {
   const { user, isLoaded } = useUser()
@@ -75,17 +75,25 @@ export default function Dashboard() {
     }
   }, [scans, loadingScans, selectedScanId])
   
+  // Update context filters when scan changes
+  useEffect(() => {
+    setAlertsScanFilter(selectedScanId)
+    setNewsScanFilter(selectedScanId)
+  }, [selectedScanId, setAlertsScanFilter, setNewsScanFilter])
+  
   // Fetch real data from Supabase filtered by selected scan
   const { competitors, loading: loadingCompetitors } = useCompetitors(selectedScanId)
-  const { alerts, loading: loadingAlerts, markAsRead } = useAlerts(selectedScanId)
   const { insights, loading: loadingInsights } = useInsights(selectedScanId)
-  const { unreadCount: unreadNewsCount } = useNewsFeed(selectedScanId)
+  
+  // Use context for alerts and news
+  const { alerts, loading: loadingAlerts, markAsRead, unreadCount: alertsUnreadCount, setScanFilter: setAlertsScanFilter } = useAlertsContext()
+  const { unreadCount: unreadNewsCount, setScanFilter: setNewsScanFilter } = useNewsFeedContext()
   
   const selectedScan = scans.find(s => s.id === selectedScanId)
 
   // Calculate KPIs from real data
   const activeCompetitorsCount = competitors.length
-  const criticalAlertsCount = alerts.filter(a => a.priority === 'critical' && !a.read).length
+  const criticalAlertsCount = alertsUnreadCount
   const newInsightsCount = insights.filter(i => {
     const created = new Date(i.created_at)
     const today = new Date()
@@ -277,7 +285,7 @@ export default function Dashboard() {
             { id: 'competitors', label: t('nav.competitors'), icon: '🎯' },
             { id: 'news', label: t('nav.news'), icon: '📰', badge: unreadNewsCount },
             { id: 'analytics', label: t('nav.analytics'), icon: '📊' },
-            { id: 'alerts', label: t('nav.alerts'), icon: '🔔', badge: alerts.filter(a => !a.read).length },
+            { id: 'alerts', label: t('nav.alerts'), icon: '🔔', badge: alertsUnreadCount },
             { id: 'insights', label: t('nav.insights'), icon: '🤖' },
             { id: 'mywatch', label: t('nav.mywatch'), icon: '👁️' },
             { id: 'settings', label: t('nav.settings'), icon: '⚙️' },
@@ -635,7 +643,7 @@ export default function Dashboard() {
         )}
 
         {activeTab === 'alerts' && (
-          <AlertsView alerts={alerts} loading={loadingAlerts} markAsRead={markAsRead} initialAlertId={initialAlertId} />
+          <AlertsView initialAlertId={initialAlertId} />
         )}
 
         {activeTab === 'insights' && (

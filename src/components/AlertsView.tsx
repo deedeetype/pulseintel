@@ -1,16 +1,11 @@
 'use client'
 
 import { useState } from 'react'
+import { useAlertsContext } from '@/contexts/AlertsContext'
 import { type Alert } from '@/lib/supabase'
 
-interface Props {
-  alerts: Alert[]
-  loading: boolean
-  markAsRead: (id: string) => void
-  initialAlertId?: string | null
-}
-
-export default function AlertsView({ alerts, loading, markAsRead }: Props) {
+export default function AlertsView() {
+  const { alerts, loading, markAsRead } = useAlertsContext()
   const [expandedId, setExpandedId] = useState<string | null>(null)
   const [filterPriority, setFilterPriority] = useState<string>('all')
   const [filterCategory, setFilterCategory] = useState<string>('all')
@@ -104,12 +99,8 @@ export default function AlertsView({ alerts, loading, markAsRead }: Props) {
               {/* Alert Header - Always Visible */}
               <div
                 onClick={() => {
-                  const newExpandedId = isExpanded ? null : alert.id
-                  setExpandedId(newExpandedId)
-                  // Mark as read without waiting for state update
-                  if (!alert.read && newExpandedId) {
-                    setTimeout(() => markAsRead(alert.id), 100)
-                  }
+                  setExpandedId(isExpanded ? null : alert.id)
+                  if (!alert.read) markAsRead(alert.id)
                 }}
                 className={`flex items-start gap-4 p-4 cursor-pointer transition ${
                   isExpanded ? 'bg-slate-800' : 'hover:bg-slate-800/50'

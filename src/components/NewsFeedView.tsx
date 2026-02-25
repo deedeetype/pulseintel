@@ -1,14 +1,10 @@
 'use client'
 
 import { useState } from 'react'
-import { useNewsFeed } from '@/hooks/useNewsFeed'
+import { useNewsFeedContext } from '@/contexts/NewsFeedContext'
 
-interface Props {
-  scanId?: string
-}
-
-export default function NewsFeedView({ scanId }: Props) {
-  const { news, loading, markAsRead } = useNewsFeed(scanId)
+export default function NewsFeedView() {
+  const { news, loading, markAsRead } = useNewsFeedContext()
   const [selectedNews, setSelectedNews] = useState<any | null>(null)
   const [filterMode, setFilterMode] = useState<'all' | 'read' | 'unread'>('all')
 

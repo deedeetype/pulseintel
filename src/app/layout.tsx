@@ -2,6 +2,8 @@ import type { Metadata } from 'next'
 import { Inter } from 'next/font/google'
 import './globals.css'
 import { SettingsProvider } from '@/contexts/SettingsContext'
+import { AlertsProvider } from '@/contexts/AlertsContext'
+import { NewsFeedProvider } from '@/contexts/NewsFeedContext'
 import { ClerkProvider } from '@clerk/nextjs'
 
 const inter = Inter({ subsets: ['latin'], variable: '--font-inter' })
@@ -22,7 +24,13 @@ export default function RootLayout({
     >
       <html lang="en" className="dark">
         <body className={`${inter.variable} font-sans antialiased`}>
-          <SettingsProvider>{children}</SettingsProvider>
+          <SettingsProvider>
+            <AlertsProvider>
+              <NewsFeedProvider>
+                {children}
+              </NewsFeedProvider>
+            </AlertsProvider>
+          </SettingsProvider>
         </body>
       </html>
     </ClerkProvider>
