@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
+import { useState } from 'react'
 import { type Alert } from '@/lib/supabase'
 
 interface Props {
@@ -10,24 +10,8 @@ interface Props {
   initialAlertId?: string | null
 }
 
-export default function AlertsView({ alerts, loading, markAsRead, initialAlertId }: Props) {
-  const [selectedAlert, setSelectedAlert] = useState<Alert | null>(null)
-  const selectedRef = useRef<HTMLDivElement>(null)
-
-  // Pre-select alert from overview click
-  useEffect(() => {
-    if (initialAlertId && alerts.length > 0) {
-      const found = alerts.find(a => a.id === initialAlertId)
-      if (found) setSelectedAlert(found)
-    }
-  }, [initialAlertId, alerts])
-
-  // Scroll selected alert into view
-  useEffect(() => {
-    if (selectedRef.current) {
-      selectedRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' })
-    }
-  }, [selectedAlert?.id])
+export default function AlertsView({ alerts, loading, markAsRead }: Props) {
+  const [expandedId, setExpandedId] = useState<string | null>(null)
   const [filterPriority, setFilterPriority] = useState<string>('all')
   const [filterCategory, setFilterCategory] = useState<string>('all')
 
@@ -105,86 +89,95 @@ export default function AlertsView({ alerts, loading, markAsRead, initialAlertId
         </div>
       </div>
 
-      {/* Detail Panel */}
-      {selectedAlert && (
-        <div className="bg-slate-900 border border-indigo-500/50 rounded-xl p-6 mb-6">
-          <div className="flex items-start justify-between">
-            <div className="flex items-start gap-3">
-              <span className="text-2xl">{categoryIcon(selectedAlert.category)}</span>
-              <div>
-                <h3 className="text-xl font-bold text-white">{selectedAlert.title}</h3>
-                <div className="flex items-center gap-3 mt-2">
-                  <span className={`px-2 py-1 rounded-full text-xs border ${priorityStyle(selectedAlert.priority)}`}>
-                    {selectedAlert.priority}
-                  </span>
-                  {selectedAlert.category && (
-                    <span className="text-xs text-slate-400 bg-slate-800 px-2 py-1 rounded-full">
-                      {selectedAlert.category}
-                    </span>
+      {/* Alerts List with Accordion */}
+      <div className="space-y-3">
+        {filtered.map((alert) => {
+          const isExpanded = expandedId === alert.id
+          
+          return (
+            <div
+              key={alert.id}
+              className={`bg-slate-900 border rounded-xl overflow-hidden transition-all ${
+                isExpanded ? 'border-indigo-500/50' : 'border-slate-800'
+              }`}
+            >
+              {/* Alert Header - Always Visible */}
+              <div
+                onClick={() => {
+                  setExpandedId(isExpanded ? null : alert.id)
+                  if (!alert.read) markAsRead(alert.id)
+                }}
+                className={`flex items-start gap-4 p-4 cursor-pointer transition ${
+                  isExpanded ? 'bg-slate-800' : 'hover:bg-slate-800/50'
+                }`}
+              >
+                <div className={`w-3 h-3 rounded-full mt-1.5 flex-shrink-0 ${priorityDot(alert.priority)}`} />
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2">
+                    <span className="text-white font-medium">{alert.title}</span>
+                    {!alert.read && <div className="w-2 h-2 bg-indigo-500 rounded-full flex-shrink-0"></div>}
+                  </div>
+                  {!isExpanded && alert.description && (
+                    <p className="text-sm text-slate-400 mt-1 line-clamp-2">{alert.description}</p>
                   )}
-                  <span className="text-xs text-slate-500">{timeAgo(selectedAlert.created_at)}</span>
+                  <div className="flex items-center gap-3 mt-2">
+                    <span className={`px-2 py-0.5 rounded-full text-xs border ${priorityStyle(alert.priority)}`}>
+                      {alert.priority}
+                    </span>
+                    {alert.category && (
+                      <span className="text-xs text-slate-500">{categoryIcon(alert.category)} {alert.category}</span>
+                    )}
+                    <span className="text-xs text-slate-500">{timeAgo(alert.created_at)}</span>
+                  </div>
+                </div>
+                <div className="text-slate-500 text-sm flex-shrink-0">
+                  {isExpanded ? '▲' : '▼'}
                 </div>
               </div>
-            </div>
-            <button onClick={() => setSelectedAlert(null)} className="text-slate-400 hover:text-white text-xl">✕</button>
-          </div>
-          
-          {selectedAlert.description && (
-            <p className="text-slate-300 mt-4 leading-relaxed">{selectedAlert.description}</p>
-          )}
-          
-          {selectedAlert.source_url && (
-            <a href={selectedAlert.source_url} target="_blank" rel="noopener noreferrer"
-              className="inline-block mt-4 text-indigo-400 hover:text-indigo-300 text-sm">
-              View source ↗
-            </a>
-          )}
-          
-          {!selectedAlert.read && (
-            <button
-              onClick={() => { markAsRead(selectedAlert.id); setSelectedAlert({ ...selectedAlert, read: true }) }}
-              className="mt-4 ml-4 px-3 py-1 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg text-sm transition"
-            >
-              Mark as read
-            </button>
-          )}
-        </div>
-      )}
 
-      {/* Alerts List */}
-      <div className="grid gap-3">
-        {filtered.map((alert) => (
-          <div
-            key={alert.id}
-            ref={selectedAlert?.id === alert.id ? selectedRef : undefined}
-            onClick={() => { setSelectedAlert(alert); if (!alert.read) markAsRead(alert.id) }}
-            className={`flex items-start gap-4 p-4 rounded-xl border transition cursor-pointer ${
-              selectedAlert?.id === alert.id
-                ? 'bg-slate-800 border-indigo-500/50'
-                : 'bg-slate-900 border-slate-800 hover:border-slate-700'
-            }`}
-          >
-            <div className={`w-3 h-3 rounded-full mt-1.5 flex-shrink-0 ${priorityDot(alert.priority)}`} />
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-2">
-                <span className="text-white font-medium">{alert.title}</span>
-                {!alert.read && <div className="w-2 h-2 bg-indigo-500 rounded-full flex-shrink-0"></div>}
-              </div>
-              {alert.description && (
-                <p className="text-sm text-slate-400 mt-1 line-clamp-2">{alert.description}</p>
+              {/* Expanded Content - Accordion */}
+              {isExpanded && (
+                <div className="px-4 pb-4 pt-2 bg-slate-800/30 border-t border-slate-700/50">
+                  <div className="flex items-start gap-3 mb-3">
+                    <span className="text-3xl">{categoryIcon(alert.category)}</span>
+                    <div className="flex-1">
+                      <h3 className="text-lg font-bold text-white mb-2">{alert.title}</h3>
+                      {alert.description && (
+                        <p className="text-slate-300 leading-relaxed">{alert.description}</p>
+                      )}
+                    </div>
+                  </div>
+                  
+                  <div className="flex items-center gap-3 mt-4">
+                    {alert.source_url && (
+                      <a 
+                        href={alert.source_url} 
+                        target="_blank" 
+                        rel="noopener noreferrer"
+                        onClick={(e) => e.stopPropagation()}
+                        className="text-indigo-400 hover:text-indigo-300 text-sm"
+                      >
+                        View source ↗
+                      </a>
+                    )}
+                    {!alert.read && (
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          markAsRead(alert.id)
+                        }}
+                        className="px-3 py-1 bg-slate-700 hover:bg-slate-600 text-slate-300 rounded-lg text-sm transition"
+                      >
+                        Mark as read
+                      </button>
+                    )}
+                  </div>
+                </div>
               )}
-              <div className="flex items-center gap-3 mt-2">
-                <span className={`px-2 py-0.5 rounded-full text-xs border ${priorityStyle(alert.priority)}`}>
-                  {alert.priority}
-                </span>
-                {alert.category && (
-                  <span className="text-xs text-slate-500">{categoryIcon(alert.category)} {alert.category}</span>
-                )}
-                <span className="text-xs text-slate-500">{timeAgo(alert.created_at)}</span>
-              </div>
             </div>
-          </div>
-        ))}
+          )
+        })}
+
         {filtered.length === 0 && (
           <div className="text-slate-400 text-center py-12">No alerts found</div>
         )}
