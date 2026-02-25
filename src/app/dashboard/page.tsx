@@ -17,6 +17,17 @@ import ProfilesView from '@/components/ProfilesView'
 import IndustryAnalyticsView from '@/components/IndustryAnalyticsView'
 import SettingsView from '@/components/SettingsView'
 import { useSettings } from '@/contexts/SettingsContext'
+import { 
+  LayoutDashboard, 
+  Target, 
+  Newspaper, 
+  BarChart3, 
+  Bell, 
+  Lightbulb, 
+  Eye, 
+  Settings as SettingsIcon,
+  Menu
+} from 'lucide-react'
 
 export default function Dashboard() {
   const { user, isLoaded } = useUser()
@@ -281,14 +292,14 @@ export default function Dashboard() {
         
         <nav className="px-3 space-y-1">
           {[
-            { id: 'overview', label: t('nav.overview'), icon: '📊' },
-            { id: 'competitors', label: t('nav.competitors'), icon: '🎯' },
-            { id: 'news', label: t('nav.news'), icon: '📰', badge: unreadNewsCount },
-            { id: 'analytics', label: t('nav.analytics'), icon: '📊' },
-            { id: 'alerts', label: t('nav.alerts'), icon: '🔔', badge: alertsUnreadCount },
-            { id: 'insights', label: t('nav.insights'), icon: '🤖' },
-            { id: 'mywatch', label: t('nav.mywatch'), icon: '👁️' },
-            { id: 'settings', label: t('nav.settings'), icon: '⚙️' },
+            { id: 'overview', label: t('nav.overview'), Icon: LayoutDashboard },
+            { id: 'competitors', label: t('nav.competitors'), Icon: Target },
+            { id: 'news', label: t('nav.news'), Icon: Newspaper, badge: unreadNewsCount },
+            { id: 'analytics', label: t('nav.analytics'), Icon: BarChart3 },
+            { id: 'alerts', label: t('nav.alerts'), Icon: Bell, badge: alertsUnreadCount },
+            { id: 'insights', label: t('nav.insights'), Icon: Lightbulb },
+            { id: 'mywatch', label: t('nav.mywatch'), Icon: Eye },
+            { id: 'settings', label: t('nav.settings'), Icon: SettingsIcon },
           ].map((item) => (
             <button
               key={item.id}
@@ -307,7 +318,7 @@ export default function Dashboard() {
               title={sidebarCollapsed ? item.label : undefined}
             >
               <div className={`flex items-center ${sidebarCollapsed ? '' : 'gap-3'}`}>
-                <span className="text-lg">{item.icon}</span>
+                <item.Icon className="w-5 h-5" />
                 {!sidebarCollapsed && <span className="font-medium">{item.label}</span>}
               </div>
               {!sidebarCollapsed && item.badge && item.badge > 0 && (
@@ -358,9 +369,9 @@ export default function Dashboard() {
         {/* Mobile Hamburger Button */}
         <button
           onClick={() => setSidebarOpen(!sidebarOpen)}
-          className="md:hidden fixed top-4 left-4 z-30 p-2 bg-slate-900 border border-slate-800 rounded-lg text-white text-xl"
+          className="md:hidden fixed top-4 left-4 z-30 p-2 bg-slate-900 border border-slate-800 rounded-lg text-white"
         >
-          ☰
+          <Menu className="w-6 h-6" />
         </button>
         {/* Header */}
         <div className="mb-8 mt-12 md:mt-0">
