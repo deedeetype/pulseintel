@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useSettings } from '@/contexts/SettingsContext'
 import { useUser } from '@clerk/nextjs'
-import { Settings as SettingsIcon, User, Building, Globe, Bell, Zap, Save, Plus, X } from 'lucide-react'
+import { Settings as SettingsIcon, User, Building, Globe, Bell, Zap, Save, Plus, X, Moon, Sun } from 'lucide-react'
 
 const REGIONS = ['Global', 'North America', 'Europe', 'Asia Pacific', 'Latin America', 'Middle East & Africa']
 const INDUSTRIES = [
@@ -109,7 +109,17 @@ export default function SettingsView() {
                       : 'bg-slate-800 light:bg-slate-100 border-slate-700 light:border-slate-300 text-slate-400 light:text-slate-700 hover:border-slate-600'
                   }`}
                 >
-                  {theme === 'dark' ? '🌙 Dark' : '☀️ Light'}
+                  {theme === 'dark' ? (
+                    <span className="flex items-center gap-2">
+                      <Moon className="w-4 h-4" />
+                      Dark
+                    </span>
+                  ) : (
+                    <span className="flex items-center gap-2">
+                      <Sun className="w-4 h-4" />
+                      Light
+                    </span>
+                  )}
                 </button>
               ))}
             </div>
@@ -119,7 +129,7 @@ export default function SettingsView() {
           <div>
             <label className={labelClass}>{t('settings.language')}</label>
             <div className="flex gap-2">
-              {([{ code: 'en' as const, label: '🇬🇧 English' }, { code: 'fr' as const, label: '🇫🇷 Français' }]).map(lang => (
+              {([{ code: 'en' as const, label: 'English', flag: '🇬🇧' }, { code: 'fr' as const, label: 'Français', flag: '🇫🇷' }]).map(lang => (
                 <button
                   key={lang.code}
                   onClick={() => { updateSettings({ language: lang.code }); showSaved() }}
@@ -129,7 +139,10 @@ export default function SettingsView() {
                       : 'bg-slate-800 light:bg-slate-100 border-slate-700 light:border-slate-300 text-slate-400 light:text-slate-700 hover:border-slate-600'
                   }`}
                 >
-                  {lang.label}
+                  <span className="flex items-center gap-2">
+                    <span>{lang.flag}</span>
+                    {lang.label}
+                  </span>
                 </button>
               ))}
             </div>

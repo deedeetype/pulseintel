@@ -33,7 +33,8 @@ import {
   Users,
   AlertTriangle,
   Sparkles,
-  TrendingUp
+  TrendingUp,
+  HandWave
 } from 'lucide-react'
 
 export default function Dashboard() {
@@ -384,8 +385,9 @@ export default function Dashboard() {
         <div className="mb-8 mt-12 md:mt-0">
           <div className="flex items-center justify-between flex-wrap gap-4">
             <div>
-              <h1 className="text-3xl font-bold text-white mb-2">
-                {t('welcome')}, {settings.profile.name || 'David'} 👋
+              <h1 className="text-3xl font-bold text-white mb-2 flex items-center gap-2">
+                {t('welcome')}, {settings.profile.name || 'David'}
+                <HandWave className="w-8 h-8 text-yellow-400" />
               </h1>
               <p className="text-slate-400">
                 {t('subtitle')}

@@ -1,6 +1,6 @@
 'use client'
 
-import { BarChart3, DollarSign, TrendingUp, Lightbulb, Globe, Users, Calendar } from 'lucide-react'
+import { BarChart3, DollarSign, TrendingUp, Lightbulb, Globe, Users, Calendar, Crown, BookOpen } from 'lucide-react'
 
 interface AnalyticsData {
   market_size_billions: number
@@ -174,7 +174,10 @@ export default function IndustryAnalyticsView({ analytics, industry, loading }: 
         {/* Market Leaders Share */}
         {analytics.market_leaders_share && analytics.market_leaders_share.length > 0 && (
           <div className="bg-slate-900 border border-slate-800 rounded-xl p-6">
-            <h3 className="text-lg font-bold text-white mb-4">👑 Market Leaders</h3>
+            <h3 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
+              <Crown className="w-5 h-5 text-yellow-400" />
+              Market Leaders
+            </h3>
             <BarChart
               items={analytics.market_leaders_share.map(m => ({ label: m.name, value: m.share_percent }))}
               maxValue={Math.max(...analytics.market_leaders_share.map(m => m.share_percent)) * 1.2}
@@ -236,7 +239,10 @@ export default function IndustryAnalyticsView({ analytics, industry, loading }: 
 
         {analytics.key_trends && analytics.key_trends.length > 0 && (
           <div className="bg-slate-900 border border-slate-800 rounded-xl p-6">
-            <h3 className="text-lg font-bold text-white mb-4">📈 Key Trends</h3>
+            <h3 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
+              <Lightbulb className="w-5 h-5" />
+              Key Trends
+            </h3>
             <div className="space-y-3">
               {analytics.key_trends.map((t, i) => (
                 <div key={i} className="bg-slate-800/50 rounded-lg p-3">
@@ -259,7 +265,10 @@ export default function IndustryAnalyticsView({ analytics, industry, loading }: 
       {/* Sources */}
       {analytics.sources && analytics.sources.length > 0 && (
         <div className="mt-6 bg-slate-900 border border-slate-800 rounded-xl p-6">
-          <h3 className="text-lg font-bold text-white mb-3">📚 Sources</h3>
+          <h3 className="text-lg font-bold text-white mb-3 flex items-center gap-2">
+            <BookOpen className="w-5 h-5" />
+            Sources
+          </h3>
           <div className="space-y-2">
             {analytics.sources.map((source, i) => (
               <div key={i} className="flex items-center gap-2">

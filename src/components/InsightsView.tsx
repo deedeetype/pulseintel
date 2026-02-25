@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { type Insight } from '@/lib/supabase'
-import { Lightbulb, AlertTriangle, Sparkles, TrendingUp, Target } from 'lucide-react'
+import { Lightbulb, AlertTriangle, Sparkles, TrendingUp, Target, X } from 'lucide-react'
 
 interface Props {
   insights: Insight[]
@@ -94,7 +94,9 @@ export default function InsightsView({ insights, loading }: Props) {
                 </div>
               </div>
             </div>
-            <button onClick={() => setSelectedInsight(null)} className="text-slate-400 hover:text-white text-xl">✕</button>
+            <button onClick={() => setSelectedInsight(null)} className="text-slate-400 hover:text-white">
+              <X className="w-5 h-5" />
+            </button>
           </div>
           
           <p className="text-slate-300 mt-4 leading-relaxed">{selectedInsight.description}</p>
