@@ -2,10 +2,18 @@
  * Netlify Scheduled Function - Automated Scan Refreshes
  * Runs every hour to check for due scan schedules
  * Triggers refresh for each profile that's due
+ * 
+ * Can also be invoked manually via POST for testing
  */
 
 import type { Handler, HandlerEvent } from "@netlify/functions"
 import type { Schedule } from "@netlify/functions"
+
+const CORS_HEADERS = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'Content-Type',
+  'Access-Control-Allow-Methods': 'POST, OPTIONS'
+}
 
 const SUPABASE_URL = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL
 const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY
@@ -95,6 +103,15 @@ async function refreshScan(scan: Scan) {
 }
 
 export const handler: Handler = async (event: HandlerEvent) => {
+  // Handle CORS preflight
+  if (event.httpMethod === 'OPTIONS') {
+    return {
+      statusCode: 200,
+      headers: CORS_HEADERS,
+      body: ''
+    }
+  }
+
   console.log('[SCHEDULED-SCANS] Running at', new Date().toISOString())
   
   try {
@@ -169,6 +186,7 @@ export const handler: Handler = async (event: HandlerEvent) => {
     
     return {
       statusCode: 200,
+      headers: CORS_HEADERS,
       body: JSON.stringify({
         message: 'Scheduled scans processed',
         total: schedules.length,
@@ -182,6 +200,7 @@ export const handler: Handler = async (event: HandlerEvent) => {
     console.error('[SCHEDULED-SCANS] Error:', error)
     return {
       statusCode: 500,
+      headers: CORS_HEADERS,
       body: JSON.stringify({ error: error.message })
     }
   }
