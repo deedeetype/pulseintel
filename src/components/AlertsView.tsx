@@ -105,84 +105,85 @@ export default function AlertsView({ alerts, loading, markAsRead, initialAlertId
         </div>
       </div>
 
-      {/* Detail Panel */}
-      {selectedAlert && (
-        <div className="bg-slate-900 border border-indigo-500/50 rounded-xl p-6 mb-6">
-          <div className="flex items-start justify-between">
-            <div className="flex items-start gap-3">
-              <span className="text-2xl">{categoryIcon(selectedAlert.category)}</span>
-              <div>
-                <h3 className="text-xl font-bold text-white">{selectedAlert.title}</h3>
-                <div className="flex items-center gap-3 mt-2">
-                  <span className={`px-2 py-1 rounded-full text-xs border ${priorityStyle(selectedAlert.priority)}`}>
-                    {selectedAlert.priority}
-                  </span>
-                  {selectedAlert.category && (
-                    <span className="text-xs text-slate-400 bg-slate-800 px-2 py-1 rounded-full">
-                      {selectedAlert.category}
-                    </span>
-                  )}
-                  <span className="text-xs text-slate-500">{timeAgo(selectedAlert.created_at)}</span>
-                </div>
-              </div>
-            </div>
-            <button onClick={() => setSelectedAlert(null)} className="text-slate-400 hover:text-white text-xl">✕</button>
-          </div>
-          
-          {selectedAlert.description && (
-            <p className="text-slate-300 mt-4 leading-relaxed">{selectedAlert.description}</p>
-          )}
-          
-          {selectedAlert.source_url && (
-            <a href={selectedAlert.source_url} target="_blank" rel="noopener noreferrer"
-              className="inline-block mt-4 text-indigo-400 hover:text-indigo-300 text-sm">
-              View source ↗
-            </a>
-          )}
-          
-          {!selectedAlert.read && (
-            <button
-              onClick={() => { markAsRead(selectedAlert.id); setSelectedAlert({ ...selectedAlert, read: true }) }}
-              className="mt-4 ml-4 px-3 py-1 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg text-sm transition"
-            >
-              Mark as read
-            </button>
-          )}
-        </div>
-      )}
-
       {/* Alerts List */}
       <div className="grid gap-3">
         {filtered.map((alert) => (
-          <div
-            key={alert.id}
-            ref={selectedAlert?.id === alert.id ? selectedRef : undefined}
-            onClick={() => { setSelectedAlert(alert); if (!alert.read) markAsRead(alert.id) }}
-            className={`flex items-start gap-4 p-4 rounded-xl border transition cursor-pointer ${
-              selectedAlert?.id === alert.id
-                ? 'bg-slate-800 border-indigo-500/50'
-                : 'bg-slate-900 border-slate-800 hover:border-slate-700'
-            }`}
-          >
-            <div className={`w-3 h-3 rounded-full mt-1.5 flex-shrink-0 ${priorityDot(alert.priority)}`} />
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-2">
-                <span className="text-white font-medium">{alert.title}</span>
-                {!alert.read && <div className="w-2 h-2 bg-indigo-500 rounded-full flex-shrink-0"></div>}
-              </div>
-              {alert.description && (
-                <p className="text-sm text-slate-400 mt-1 line-clamp-2">{alert.description}</p>
-              )}
-              <div className="flex items-center gap-3 mt-2">
-                <span className={`px-2 py-0.5 rounded-full text-xs border ${priorityStyle(alert.priority)}`}>
-                  {alert.priority}
-                </span>
-                {alert.category && (
-                  <span className="text-xs text-slate-500">{categoryIcon(alert.category)} {alert.category}</span>
+          <div key={alert.id}>
+            <div
+              ref={selectedAlert?.id === alert.id ? selectedRef : undefined}
+              onClick={() => { setSelectedAlert(selectedAlert?.id === alert.id ? null : alert); if (!alert.read) markAsRead(alert.id) }}
+              className={`flex items-start gap-4 p-4 rounded-xl border transition cursor-pointer ${
+                selectedAlert?.id === alert.id
+                  ? 'bg-slate-800 border-indigo-500/50'
+                  : 'bg-slate-900 border-slate-800 hover:border-slate-700'
+              }`}
+            >
+              <div className={`w-3 h-3 rounded-full mt-1.5 flex-shrink-0 ${priorityDot(alert.priority)}`} />
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2">
+                  <span className="text-white font-medium">{alert.title}</span>
+                  {!alert.read && <div className="w-2 h-2 bg-indigo-500 rounded-full flex-shrink-0"></div>}
+                </div>
+                {alert.description && (
+                  <p className="text-sm text-slate-400 mt-1 line-clamp-2">{alert.description}</p>
                 )}
-                <span className="text-xs text-slate-500">{timeAgo(alert.created_at)}</span>
+                <div className="flex items-center gap-3 mt-2">
+                  <span className={`px-2 py-0.5 rounded-full text-xs border ${priorityStyle(alert.priority)}`}>
+                    {alert.priority}
+                  </span>
+                  {alert.category && (
+                    <span className="text-xs text-slate-500">{categoryIcon(alert.category)} {alert.category}</span>
+                  )}
+                  <span className="text-xs text-slate-500">{timeAgo(alert.created_at)}</span>
+                </div>
               </div>
             </div>
+            
+            {/* Expanded details below the card */}
+            {selectedAlert?.id === alert.id && (
+              <div className="bg-slate-800/50 border border-indigo-500/30 rounded-b-xl -mt-3 pt-5 px-6 pb-6">
+                <div className="flex items-start justify-between mb-3">
+                  <div className="flex items-start gap-3">
+                    <span className="text-2xl">{categoryIcon(alert.category)}</span>
+                    <div>
+                      <h3 className="text-lg font-bold text-white">{alert.title}</h3>
+                      <div className="flex items-center gap-3 mt-1">
+                        <span className={`px-2 py-1 rounded-full text-xs border ${priorityStyle(alert.priority)}`}>
+                          {alert.priority}
+                        </span>
+                        {alert.category && (
+                          <span className="text-xs text-slate-400 bg-slate-700 px-2 py-1 rounded-full">
+                            {alert.category}
+                          </span>
+                        )}
+                        <span className="text-xs text-slate-500">{timeAgo(alert.created_at)}</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                
+                {alert.description && (
+                  <p className="text-slate-300 leading-relaxed">{alert.description}</p>
+                )}
+                
+                <div className="flex items-center gap-3 mt-4">
+                  {alert.source_url && (
+                    <a href={alert.source_url} target="_blank" rel="noopener noreferrer"
+                      className="text-indigo-400 hover:text-indigo-300 text-sm">
+                      View source ↗
+                    </a>
+                  )}
+                  {!alert.read && (
+                    <button
+                      onClick={(e) => { e.stopPropagation(); markAsRead(alert.id); setSelectedAlert({ ...alert, read: true }) }}
+                      className="px-3 py-1 bg-slate-700 hover:bg-slate-600 text-slate-300 rounded-lg text-sm transition"
+                    >
+                      Mark as read
+                    </button>
+                  )}
+                </div>
+              </div>
+            )}
           </div>
         ))}
         {filtered.length === 0 && (
