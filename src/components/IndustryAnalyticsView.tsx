@@ -1,5 +1,7 @@
 'use client'
 
+import { BarChart3, DollarSign, TrendingUp, Lightbulb, Globe, Users, Calendar } from 'lucide-react'
+
 interface AnalyticsData {
   market_size_billions: number
   market_size_year: number
@@ -86,7 +88,9 @@ export default function IndustryAnalyticsView({ analytics, industry, loading }: 
   if (!analytics) {
     return (
       <div className="text-center py-20">
-        <div className="text-6xl mb-4">📊</div>
+        <div className="mb-4 flex justify-center">
+          <BarChart3 className="w-16 h-16 text-slate-600" />
+        </div>
         <h2 className="text-2xl font-bold text-white light:text-slate-900 mb-2">Industry Analytics</h2>
         <p className="text-slate-400 light:text-slate-600">
           {industry ? `No analytics data available for ${industry} yet.` : 'Select a scan to view industry analytics.'}
@@ -104,24 +108,36 @@ export default function IndustryAnalyticsView({ analytics, industry, loading }: 
   return (
     <div>
       <div className="mb-6">
-        <h2 className="text-2xl font-bold text-white">📊 {industry} — Industry Analytics</h2>
+        <h2 className="text-2xl font-bold text-white flex items-center gap-2">
+          <BarChart3 className="w-6 h-6" />
+          {industry} — Industry Analytics
+        </h2>
         <p className="text-slate-400 mt-1">AI-generated market intelligence based on latest data</p>
       </div>
 
       {/* Market Size Hero */}
       <div className="grid lg:grid-cols-3 gap-6 mb-6">
         <div className="bg-gradient-to-br from-indigo-900/50 to-purple-900/50 border border-indigo-500/30 rounded-xl p-6">
-          <h3 className="text-sm font-medium text-indigo-300 mb-2">Current Market Size</h3>
+          <h3 className="text-sm font-medium text-indigo-300 mb-2 flex items-center gap-1">
+            <DollarSign className="w-4 h-4" />
+            Current Market Size
+          </h3>
           <div className="text-4xl font-bold text-white">${analytics.market_size_billions}B</div>
           <p className="text-slate-400 text-sm mt-1">{analytics.market_size_year}</p>
         </div>
         <div className="bg-gradient-to-br from-cyan-900/50 to-blue-900/50 border border-cyan-500/30 rounded-xl p-6">
-          <h3 className="text-sm font-medium text-cyan-300 mb-2">Projected Market Size</h3>
+          <h3 className="text-sm font-medium text-cyan-300 mb-2 flex items-center gap-1">
+            <TrendingUp className="w-4 h-4" />
+            Projected Market Size
+          </h3>
           <div className="text-4xl font-bold text-white">${analytics.projected_size_billions}B</div>
           <p className="text-slate-400 text-sm mt-1">by {analytics.projected_year} (+{growthPercent}%)</p>
         </div>
         <div className="bg-gradient-to-br from-emerald-900/50 to-green-900/50 border border-emerald-500/30 rounded-xl p-6">
-          <h3 className="text-sm font-medium text-emerald-300 mb-2">CAGR</h3>
+          <h3 className="text-sm font-medium text-emerald-300 mb-2 flex items-center gap-1">
+            <Calendar className="w-4 h-4" />
+            CAGR
+          </h3>
           <div className="text-4xl font-bold text-white">{analytics.cagr_percent}%</div>
           <p className="text-slate-400 text-sm mt-1">Compound Annual Growth Rate</p>
         </div>
@@ -131,7 +147,10 @@ export default function IndustryAnalyticsView({ analytics, industry, loading }: 
         {/* Market Segments */}
         {analytics.top_segments && analytics.top_segments.length > 0 && (
           <div className="bg-slate-900 border border-slate-800 rounded-xl p-6">
-            <h3 className="text-lg font-bold text-white mb-4">🧩 Market Segments</h3>
+            <h3 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
+              <BarChart3 className="w-5 h-5" />
+              Market Segments
+            </h3>
             <DonutChart segments={analytics.top_segments} />
           </div>
         )}
@@ -139,7 +158,10 @@ export default function IndustryAnalyticsView({ analytics, industry, loading }: 
         {/* Regional Distribution */}
         {analytics.regional_distribution && analytics.regional_distribution.length > 0 && (
           <div className="bg-slate-900 border border-slate-800 rounded-xl p-6">
-            <h3 className="text-lg font-bold text-white mb-4">🌍 Regional Distribution</h3>
+            <h3 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
+              <Globe className="w-5 h-5" />
+              Regional Distribution
+            </h3>
             <BarChart
               items={analytics.regional_distribution.map(r => ({ label: r.region, value: r.share_percent }))}
               maxValue={100}
@@ -163,7 +185,10 @@ export default function IndustryAnalyticsView({ analytics, industry, loading }: 
         {/* Funding Activity */}
         {analytics.funding_activity && (
           <div className="bg-slate-900 border border-slate-800 rounded-xl p-6">
-            <h3 className="text-lg font-bold text-white mb-4">💰 Funding Activity</h3>
+            <h3 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
+              <DollarSign className="w-5 h-5" />
+              Funding Activity
+            </h3>
             <div className="grid grid-cols-2 gap-4">
               <div className="bg-slate-800/50 rounded-lg p-4 text-center">
                 <div className="text-2xl font-bold text-white">${analytics.funding_activity.total_billions}B</div>
@@ -192,7 +217,10 @@ export default function IndustryAnalyticsView({ analytics, industry, loading }: 
       <div className="grid lg:grid-cols-2 gap-6">
         {analytics.growth_drivers && analytics.growth_drivers.length > 0 && (
           <div className="bg-slate-900 border border-slate-800 rounded-xl p-6">
-            <h3 className="text-lg font-bold text-white mb-4">🚀 Growth Drivers</h3>
+            <h3 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
+              <TrendingUp className="w-5 h-5" />
+              Growth Drivers
+            </h3>
             <div className="space-y-3">
               {analytics.growth_drivers.map((driver, i) => (
                 <div key={i} className="flex items-start gap-3">

@@ -1,6 +1,7 @@
 'use client'
 
 import { type Scan } from '@/hooks/useScans'
+import { Eye, RefreshCw, Search, Trash2 } from 'lucide-react'
 
 interface Props {
   scans: Scan[]
@@ -44,7 +45,10 @@ export default function ProfilesView({ scans, loading, selectedScanId, onSelectS
   return (
     <div>
       <div className="mb-6">
-        <h2 className="text-2xl font-bold text-white">👁️ My Watch</h2>
+        <h2 className="text-2xl font-bold text-white flex items-center gap-2">
+          <Eye className="w-6 h-6" />
+          My Watch
+        </h2>
         <p className="text-slate-400 mt-1">{profiles.length} research profile{profiles.length !== 1 ? 's' : ''}</p>
       </div>
 
@@ -83,7 +87,8 @@ export default function ProfilesView({ scans, loading, selectedScanId, onSelectS
                     className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-sm font-medium transition flex items-center gap-1"
                     title="Refresh with latest data (incremental)"
                   >
-                    🔄 Refresh
+                    <RefreshCw className="w-3.5 h-3.5" />
+                    Refresh
                   </button>
                 )}
                 {onFullRescan && (
@@ -92,7 +97,8 @@ export default function ProfilesView({ scans, loading, selectedScanId, onSelectS
                     className="px-3 py-1.5 bg-slate-700 hover:bg-slate-600 text-white rounded-lg text-sm font-medium transition flex items-center gap-1"
                     title="Full rescan from scratch"
                   >
-                    ⚡ Full Rescan
+                    <Search className="w-3.5 h-3.5" />
+                    Full Rescan
                   </button>
                 )}
                 {onDeleteProfile && (
@@ -105,7 +111,8 @@ export default function ProfilesView({ scans, loading, selectedScanId, onSelectS
                     className="px-3 py-1.5 bg-rose-600 hover:bg-rose-700 text-white rounded-lg text-sm font-medium transition flex items-center gap-1"
                     title="Delete profile and all data"
                   >
-                    🗑️ Delete
+                    <Trash2 className="w-3.5 h-3.5" />
+                    Delete
                   </button>
                 )}
               </div>

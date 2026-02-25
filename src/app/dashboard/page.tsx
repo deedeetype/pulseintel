@@ -552,7 +552,10 @@ export default function Dashboard() {
             {/* Recent Alerts & Top Competitors - Clickable */}
             <div className="grid lg:grid-cols-2 gap-6 mb-8">
               <div className="bg-slate-900 border border-slate-800 rounded-xl p-6">
-                <h2 className="text-xl font-bold text-white mb-4">🔔 Recent Alerts</h2>
+                <h2 className="text-xl font-bold text-white mb-4 flex items-center gap-2">
+                  <Bell className="w-5 h-5" />
+                  Recent Alerts
+                </h2>
                 {loadingAlerts ? (
                   <div className="text-slate-400 text-center py-8">Loading alerts...</div>
                 ) : alerts.length === 0 ? (
@@ -583,7 +586,10 @@ export default function Dashboard() {
               </div>
 
               <div className="bg-slate-900 border border-slate-800 rounded-xl p-6">
-                <h2 className="text-xl font-bold text-white mb-4">🎯 Top Competitors</h2>
+                <h2 className="text-xl font-bold text-white mb-4 flex items-center gap-2">
+                  <Target className="w-5 h-5" />
+                  Top Competitors
+                </h2>
                 {loadingCompetitors ? (
                   <div className="text-slate-400 text-center py-8">Loading competitors...</div>
                 ) : topCompetitors.length === 0 ? (
@@ -594,8 +600,8 @@ export default function Dashboard() {
                       <div key={comp.id} onClick={() => setActiveTab('competitors')}
                         className="flex items-center justify-between p-3 bg-slate-800/50 rounded-lg hover:bg-slate-800 transition cursor-pointer">
                         <div className="flex items-center gap-3">
-                          <div className="w-10 h-10 bg-gradient-to-br from-indigo-500 to-purple-500 rounded-lg flex items-center justify-center text-white font-bold">
-                            {comp.name[0]}
+                          <div className="w-10 h-10 bg-gradient-to-br from-indigo-500 to-purple-500 rounded-lg flex items-center justify-center text-white">
+                            <Target className="w-5 h-5" />
                           </div>
                           <div>
                             <div className="text-white font-medium">{comp.name}</div>
@@ -618,7 +624,10 @@ export default function Dashboard() {
 
             {/* AI Insights Preview */}
             <div className="bg-gradient-to-br from-indigo-900/50 to-purple-900/50 border border-indigo-500/30 rounded-xl p-6">
-              <h2 className="text-xl font-bold text-white mb-4">🤖 AI-Generated Insights</h2>
+              <h2 className="text-xl font-bold text-white mb-4 flex items-center gap-2">
+                <Lightbulb className="w-5 h-5" />
+                AI-Generated Insights
+              </h2>
               {loadingInsights ? (
                 <div className="text-slate-300 text-center py-8">Loading insights...</div>
               ) : insights.length === 0 ? (

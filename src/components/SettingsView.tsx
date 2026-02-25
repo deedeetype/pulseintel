@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useSettings } from '@/contexts/SettingsContext'
 import { useUser } from '@clerk/nextjs'
+import { Settings as SettingsIcon, User, Building, Globe, Bell, Zap, Save, Plus, X } from 'lucide-react'
 
 const REGIONS = ['Global', 'North America', 'Europe', 'Asia Pacific', 'Latin America', 'Middle East & Africa']
 const INDUSTRIES = [
@@ -74,7 +75,10 @@ export default function SettingsView() {
     <div className="max-w-3xl">
       <div className="flex items-center justify-between mb-8">
         <div>
-          <h2 className="text-2xl font-bold text-white light:text-slate-900">⚙️ {t('settings.title')}</h2>
+          <h2 className="text-2xl font-bold text-white light:text-slate-900 flex items-center gap-2">
+            <SettingsIcon className="w-6 h-6" />
+            {t('settings.title')}
+          </h2>
         </div>
         {saved && (
           <div className="px-4 py-2 bg-green-500/10 border border-green-500/30 rounded-lg text-green-400 text-sm animate-pulse">
@@ -85,7 +89,10 @@ export default function SettingsView() {
 
       {/* Appearance */}
       <div className={`${cardClass} mb-6`}>
-        <h3 className="text-lg font-bold text-white light:text-slate-900 mb-4">🎨 {t('settings.appearance')}</h3>
+        <h3 className="text-lg font-bold text-white light:text-slate-900 mb-4 flex items-center gap-2">
+          <Zap className="w-5 h-5" />
+          {t('settings.appearance')}
+        </h3>
         
         <div className="grid md:grid-cols-2 gap-6">
           {/* Theme Toggle */}
@@ -132,7 +139,10 @@ export default function SettingsView() {
 
       {/* Profile */}
       <div className={`${cardClass} mb-6`}>
-        <h3 className="text-lg font-bold text-white light:text-slate-900 mb-4">👤 {t('settings.profile')}</h3>
+        <h3 className="text-lg font-bold text-white light:text-slate-900 mb-4 flex items-center gap-2">
+          <User className="w-5 h-5" />
+          {t('settings.profile')}
+        </h3>
         
         <div className="space-y-4">
           <div className="grid md:grid-cols-2 gap-4">
@@ -199,7 +209,10 @@ export default function SettingsView() {
 
       {/* Scan Preferences */}
       <div className={`${cardClass} mb-6`}>
-        <h3 className="text-lg font-bold text-white light:text-slate-900 mb-4">🔍 {t('settings.scan_prefs')}</h3>
+        <h3 className="text-lg font-bold text-white light:text-slate-900 mb-4 flex items-center gap-2">
+          <Building className="w-5 h-5" />
+          {t('settings.scan_prefs')}
+        </h3>
         
         <div className="space-y-6">
           {/* Max Competitors */}
@@ -288,9 +301,9 @@ export default function SettingsView() {
               />
               <button
                 onClick={addWatchlistItem}
-                className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-medium transition"
+                className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-medium transition flex items-center justify-center"
               >
-                +
+                <Plus className="w-5 h-5" />
               </button>
             </div>
 
@@ -299,7 +312,9 @@ export default function SettingsView() {
                 {settings.scanPreferences.watchlist.map(item => (
                   <div key={item} className="flex items-center gap-2 px-3 py-1.5 bg-slate-800 border border-slate-700 rounded-lg text-sm text-white">
                     <span>{item}</span>
-                    <button onClick={() => removeWatchlistItem(item)} className="text-slate-500 hover:text-red-400 transition">✕</button>
+                    <button onClick={() => removeWatchlistItem(item)} className="text-slate-500 hover:text-red-400 transition">
+                      <X className="w-3.5 h-3.5" />
+                    </button>
                   </div>
                 ))}
               </div>
