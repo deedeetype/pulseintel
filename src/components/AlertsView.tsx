@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect } from 'react'
 import { type Alert } from '@/lib/supabase'
 
 interface Props {
@@ -12,7 +12,6 @@ interface Props {
 
 export default function AlertsView({ alerts, loading, markAsRead, initialAlertId }: Props) {
   const [selectedAlert, setSelectedAlert] = useState<Alert | null>(null)
-  const selectedRef = useRef<HTMLDivElement>(null)
 
   // Pre-select alert from overview click
   useEffect(() => {
@@ -103,8 +102,11 @@ export default function AlertsView({ alerts, loading, markAsRead, initialAlertId
         {filtered.map((alert) => (
           <div key={alert.id}>
             <div
-              ref={selectedAlert?.id === alert.id ? selectedRef : undefined}
-              onClick={() => { setSelectedAlert(selectedAlert?.id === alert.id ? null : alert); if (!alert.read) markAsRead(alert.id) }}
+              onClick={(e) => { 
+                e.preventDefault()
+                setSelectedAlert(selectedAlert?.id === alert.id ? null : alert)
+                if (!alert.read) markAsRead(alert.id)
+              }}
               className={`flex items-start gap-4 p-4 rounded-xl border transition cursor-pointer ${
                 selectedAlert?.id === alert.id
                   ? 'bg-slate-800 border-indigo-500/50'
