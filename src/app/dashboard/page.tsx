@@ -35,8 +35,10 @@ import {
   Sparkles,
   TrendingUp,
   Hand,
-  CheckCircle2
+  CheckCircle2,
+  Activity
 } from 'lucide-react'
+import ActivityView from '@/components/ActivityView'
 
 export default function Dashboard() {
   const { user, isLoaded } = useUser()
@@ -342,6 +344,7 @@ export default function Dashboard() {
             { id: 'alerts', label: t('nav.alerts'), Icon: Bell, badge: alertsUnreadCount },
             { id: 'insights', label: t('nav.insights'), Icon: Lightbulb },
             { id: 'mywatch', label: t('nav.mywatch'), Icon: Eye },
+            { id: 'activity', label: 'Activity', Icon: Activity },
             { id: 'settings', label: t('nav.settings'), Icon: SettingsIcon },
           ].map((item) => (
             <button
@@ -782,6 +785,10 @@ export default function Dashboard() {
             industry={selectedScan?.industry || 'Unknown'}
             loading={loadingScans}
           />
+        )}
+
+        {activeTab === 'activity' && (
+          <ActivityView />
         )}
 
         {activeTab === 'settings' && (
