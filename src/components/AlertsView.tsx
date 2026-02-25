@@ -21,13 +21,6 @@ export default function AlertsView({ alerts, loading, markAsRead, initialAlertId
       if (found) setSelectedAlert(found)
     }
   }, [initialAlertId, alerts])
-
-  // Scroll selected alert into view
-  useEffect(() => {
-    if (selectedRef.current) {
-      selectedRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' })
-    }
-  }, [selectedAlert?.id])
   const [filterPriority, setFilterPriority] = useState<string>('all')
   const [filterCategory, setFilterCategory] = useState<string>('all')
 
