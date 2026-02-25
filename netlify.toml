@@ -10,8 +10,7 @@
   node_bundler = "esbuild"
   directory = "netlify/functions"
 
-[functions.scheduled-scans]
-  schedule = "*/5 * * * *"
+# Removed - scheduled-scans.mts not used anymore (using Next.js API route instead)
   
 [[redirects]]
   from = "/.netlify/functions/*"
