@@ -104,8 +104,12 @@ export default function AlertsView({ alerts, loading, markAsRead }: Props) {
               {/* Alert Header - Always Visible */}
               <div
                 onClick={() => {
-                  setExpandedId(isExpanded ? null : alert.id)
-                  if (!alert.read) markAsRead(alert.id)
+                  const newExpandedId = isExpanded ? null : alert.id
+                  setExpandedId(newExpandedId)
+                  // Mark as read without waiting for state update
+                  if (!alert.read && newExpandedId) {
+                    setTimeout(() => markAsRead(alert.id), 100)
+                  }
                 }}
                 className={`flex items-start gap-4 p-4 cursor-pointer transition ${
                   isExpanded ? 'bg-slate-800' : 'hover:bg-slate-800/50'

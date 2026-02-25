@@ -45,6 +45,11 @@ export function useAlerts(scanId?: string, limit?: number) {
 
   async function markAsRead(alertId: string) {
     try {
+      // Optimistic update - update local state immediately
+      setAlerts(prev => prev.map(a => 
+        a.id === alertId ? { ...a, read: true } : a
+      ))
+
       const token = await getToken({ template: 'supabase' })
       const supabase = createSupabaseClient(token || undefined)
       
@@ -53,10 +58,14 @@ export function useAlerts(scanId?: string, limit?: number) {
         .update({ read: true })
         .eq('id', alertId)
 
-      if (error) throw error
-      await fetchAlerts()
+      if (error) {
+        // Revert on error
+        console.error('Error marking alert as read:', err)
+        await fetchAlerts()
+      }
     } catch (err) {
       console.error('Error marking alert as read:', err)
+      await fetchAlerts()
     }
   }
 
