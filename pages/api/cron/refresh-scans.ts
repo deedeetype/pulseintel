@@ -27,10 +27,24 @@ interface Scan {
   last_refreshed_at?: string
 }
 
-async function refreshScan(scan: Scan) {
+async function refreshScan(scan: Scan, logId: string) {
   console.log(`[REFRESH] Starting refresh for scan ${scan.id} (${scan.industry})`)
   
   try {
+    // Update log: started
+    await fetch(`${SUPABASE_URL}/rest/v1/refresh_logs?id=eq.${logId}`, {
+      method: 'PATCH',
+      headers: {
+        'apikey': SUPABASE_SERVICE_KEY!,
+        'Authorization': `Bearer ${SUPABASE_SERVICE_KEY}`,
+        'Content-Type': 'application/json',
+        'Prefer': 'return=minimal'
+      },
+      body: JSON.stringify({
+        started_at: new Date().toISOString()
+      })
+    })
+    
     // Step 1: Collect latest news
     const newsRes = await fetch(`${process.env.URL}/.netlify/functions/scan-step`, {
       method: 'POST',
@@ -69,7 +83,9 @@ async function refreshScan(scan: Scan) {
     }
     
     const analyzeData = await analyzeRes.json()
-    console.log(`[REFRESH] Generated ${analyzeData.alerts?.length || 0} alerts, ${analyzeData.insights?.length || 0} insights`)
+    const newAlertsCount = analyzeData.alerts?.length || 0
+    const newInsightsCount = analyzeData.insights?.length || 0
+    console.log(`[REFRESH] Generated ${newAlertsCount} alerts, ${newInsightsCount} insights`)
     
     // Step 3: Update scan metadata
     await fetch(`${SUPABASE_URL}/rest/v1/scans?id=eq.${scan.id}`, {
@@ -87,10 +103,46 @@ async function refreshScan(scan: Scan) {
     })
     
     console.log(`[REFRESH] Completed scan ${scan.id}`)
+    
+    // Update log: completed successfully
+    await fetch(`${SUPABASE_URL}/rest/v1/refresh_logs?id=eq.${logId}`, {
+      method: 'PATCH',
+      headers: {
+        'apikey': SUPABASE_SERVICE_KEY!,
+        'Authorization': `Bearer ${SUPABASE_SERVICE_KEY}`,
+        'Content-Type': 'application/json',
+        'Prefer': 'return=minimal'
+      },
+      body: JSON.stringify({
+        completed_at: new Date().toISOString(),
+        status: 'success',
+        new_alerts_count: newAlertsCount,
+        new_insights_count: newInsightsCount,
+        new_news_count: newsData.articles?.length || 0
+      })
+    })
+    
     return { success: true }
     
   } catch (error: any) {
     console.error(`[REFRESH] Error for scan ${scan.id}:`, error.message)
+    
+    // Update log: failed
+    await fetch(`${SUPABASE_URL}/rest/v1/refresh_logs?id=eq.${logId}`, {
+      method: 'PATCH',
+      headers: {
+        'apikey': SUPABASE_SERVICE_KEY!,
+        'Authorization': `Bearer ${SUPABASE_SERVICE_KEY}`,
+        'Content-Type': 'application/json',
+        'Prefer': 'return=minimal'
+      },
+      body: JSON.stringify({
+        completed_at: new Date().toISOString(),
+        status: 'failed',
+        error_message: error.message
+      })
+    })
+    
     return { success: false, error: error.message }
   }
 }
@@ -147,10 +199,32 @@ export default async function handler(
     const scans: Scan[] = await scansRes.json()
     console.log(`[CRON-REFRESH-SCANS] Processing ${scans.length} scans`)
     
+    // Create refresh logs for each scan
+    const logIds: Record<string, string> = {}
+    for (const scan of scans) {
+      const logRes = await fetch(`${SUPABASE_URL}/rest/v1/refresh_logs`, {
+        method: 'POST',
+        headers: {
+          'apikey': SUPABASE_SERVICE_KEY!,
+          'Authorization': `Bearer ${SUPABASE_SERVICE_KEY}`,
+          'Content-Type': 'application/json',
+          'Prefer': 'return=representation'
+        },
+        body: JSON.stringify({
+          scan_id: scan.id,
+          user_id: scan.user_id,
+          triggered_by: 'scheduled',
+          status: 'running'
+        })
+      })
+      const logData = await logRes.json()
+      logIds[scan.id] = logData[0]?.id
+    }
+    
     // Refresh each scan
     const results = await Promise.allSettled(
       scans.map(async (scan) => {
-        const result = await refreshScan(scan)
+        const result = await refreshScan(scan, logIds[scan.id])
         
         // Update schedule last_run_at
         const schedule = schedules.find(s => s.scan_id === scan.id)
