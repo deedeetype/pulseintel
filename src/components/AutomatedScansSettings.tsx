@@ -63,23 +63,32 @@ export default function AutomatedScansSettings() {
   const fetchScansAndSchedules = async () => {
     try {
       // Fetch user's scans
+      // TODO: Replace with proper Clerk user ID after Stripe integration
+      const userId = user?.id || '2db9243c-9c2b-4c3d-bd1e-48f80f39dfd7' // Fallback to DEMO_USER_ID
+      
+      console.log('[AutomatedScans] Fetching scans for user:', userId)
+      
       const { data: scansData, error: scansError } = await supabase
         .from('scans')
         .select('id, industry, company_name, company_url')
-        .eq('user_id', user?.id)
+        .eq('user_id', userId)
         .eq('status', 'completed')
         .order('created_at', { ascending: false })
 
       if (scansError) throw scansError
+      
+      console.log('[AutomatedScans] Found scans:', scansData?.length || 0, scansData)
       setScans(scansData || [])
 
       // Fetch existing schedules
       const { data: schedulesData, error: schedulesError } = await supabase
         .from('scan_schedules')
         .select('*')
-        .eq('user_id', user?.id)
+        .eq('user_id', userId)
 
       if (schedulesError) throw schedulesError
+
+      console.log('[AutomatedScans] Found schedules:', schedulesData?.length || 0)
 
       // Convert to map by scan_id
       const schedulesMap: Record<string, ScanSchedule> = {}
@@ -97,7 +106,10 @@ export default function AutomatedScansSettings() {
   const handleSaveSchedule = async (scanId: string, schedule: Partial<ScanSchedule>) => {
     setSaving(scanId)
     try {
+      const userId = user?.id || '2db9243c-9c2b-4c3d-bd1e-48f80f39dfd7'
       const existing = schedules[scanId]
+      
+      console.log('[AutomatedScans] Saving schedule for scan:', scanId, 'existing:', !!existing)
       
       if (existing) {
         // Update
@@ -112,7 +124,7 @@ export default function AutomatedScansSettings() {
         const { error } = await supabase
           .from('scan_schedules')
           .insert({
-            user_id: user?.id,
+            user_id: userId,
             scan_id: scanId,
             ...schedule
           })
