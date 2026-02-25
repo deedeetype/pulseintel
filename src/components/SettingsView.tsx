@@ -1,7 +1,8 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useSettings } from '@/contexts/SettingsContext'
+import { useUser } from '@clerk/nextjs'
 
 const REGIONS = ['Global', 'North America', 'Europe', 'Asia Pacific', 'Latin America', 'Middle East & Africa']
 const INDUSTRIES = [
@@ -12,9 +13,24 @@ const INDUSTRIES = [
 ]
 
 export default function SettingsView() {
+  const { user } = useUser()
   const { settings, updateSettings, updateProfile, updateScanPreferences, t } = useSettings()
   const [saved, setSaved] = useState(false)
   const [watchlistInput, setWatchlistInput] = useState('')
+
+  // Load onboarding data into settings on mount
+  useEffect(() => {
+    if (user?.unsafeMetadata) {
+      const meta = user.unsafeMetadata as any
+      if (meta.companyName && !settings.profile.company) {
+        updateProfile({ 
+          company: meta.companyName,
+          companyUrl: meta.companyUrl || '',
+          defaultIndustry: meta.industry || ''
+        })
+      }
+    }
+  }, [user])
 
   const showSaved = () => {
     setSaved(true)
@@ -83,7 +99,7 @@ export default function SettingsView() {
                   className={`flex-1 px-4 py-3 rounded-lg border text-sm font-medium transition ${
                     settings.theme === theme
                       ? 'bg-indigo-600 border-indigo-500 text-white'
-                      : 'bg-slate-800 border-slate-700 text-slate-400 hover:border-slate-600'
+                      : 'bg-slate-800 light:bg-slate-100 border-slate-700 light:border-slate-300 text-slate-400 light:text-slate-700 hover:border-slate-600'
                   }`}
                 >
                   {theme === 'dark' ? '🌙 Dark' : '☀️ Light'}
@@ -103,7 +119,7 @@ export default function SettingsView() {
                   className={`flex-1 px-4 py-3 rounded-lg border text-sm font-medium transition ${
                     settings.language === lang.code
                       ? 'bg-indigo-600 border-indigo-500 text-white'
-                      : 'bg-slate-800 border-slate-700 text-slate-400 hover:border-slate-600'
+                      : 'bg-slate-800 light:bg-slate-100 border-slate-700 light:border-slate-300 text-slate-400 light:text-slate-700 hover:border-slate-600'
                   }`}
                 >
                   {lang.label}
@@ -197,7 +213,7 @@ export default function SettingsView() {
                   className={`px-5 py-2 rounded-lg border text-sm font-medium transition ${
                     settings.scanPreferences.maxCompetitors === n
                       ? 'bg-indigo-600 border-indigo-500 text-white'
-                      : 'bg-slate-800 border-slate-700 text-slate-400 hover:border-slate-600'
+                      : 'bg-slate-800 light:bg-slate-100 border-slate-700 light:border-slate-300 text-slate-400 light:text-slate-700 hover:border-slate-600'
                   }`}
                 >
                   {n}
@@ -226,7 +242,7 @@ export default function SettingsView() {
                   className={`flex items-center gap-2 px-5 py-2 rounded-lg border text-sm font-medium transition ${
                     settings.scanPreferences.scanFrequency === freq.value
                       ? 'bg-indigo-600 border-indigo-500 text-white'
-                      : 'bg-slate-800 border-slate-700 text-slate-400 hover:border-slate-600'
+                      : 'bg-slate-800 light:bg-slate-100 border-slate-700 light:border-slate-300 text-slate-400 light:text-slate-700 hover:border-slate-600'
                   }`}
                 >
                   {freq.label}
@@ -247,7 +263,7 @@ export default function SettingsView() {
                   className={`px-4 py-2 rounded-lg border text-sm transition ${
                     settings.scanPreferences.targetRegions.includes(region)
                       ? 'bg-indigo-600 border-indigo-500 text-white'
-                      : 'bg-slate-800 border-slate-700 text-slate-400 hover:border-slate-600'
+                      : 'bg-slate-800 light:bg-slate-100 border-slate-700 light:border-slate-300 text-slate-400 light:text-slate-700 hover:border-slate-600'
                   }`}
                 >
                   {region}

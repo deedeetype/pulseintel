@@ -87,8 +87,13 @@ export default function IndustryAnalyticsView({ analytics, industry, loading }: 
     return (
       <div className="text-center py-20">
         <div className="text-6xl mb-4">📊</div>
-        <h2 className="text-2xl font-bold text-white mb-2">Industry Analytics</h2>
-        <p className="text-slate-400">Run a scan to generate industry analytics for this market.</p>
+        <h2 className="text-2xl font-bold text-white light:text-slate-900 mb-2">Industry Analytics</h2>
+        <p className="text-slate-400 light:text-slate-600">
+          {industry ? `No analytics data available for ${industry} yet.` : 'Select a scan to view industry analytics.'}
+        </p>
+        <p className="text-slate-500 light:text-slate-500 text-sm mt-2">
+          Run a new scan to generate AI-powered market intelligence.
+        </p>
       </div>
     )
   }
