@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { useNewsFeedContext } from '@/contexts/NewsFeedContext'
+import { Newspaper, ExternalLink, TrendingUp, TrendingDown, Minus, Calendar } from 'lucide-react'
 
 export default function NewsFeedView() {
   const { news, loading, markAsRead } = useNewsFeedContext()
@@ -21,6 +22,15 @@ export default function NewsFeedView() {
       negative: 'bg-red-500/10 text-red-400'
     }
     return styles[sentiment || 'neutral'] || styles.neutral
+  }
+
+  const SentimentIcon = ({ sentiment }: { sentiment: string | null }) => {
+    const iconClass = "w-4 h-4"
+    switch (sentiment) {
+      case 'positive': return <TrendingUp className={iconClass} />
+      case 'negative': return <TrendingDown className={iconClass} />
+      default: return <Minus className={iconClass} />
+    }
   }
 
   const formatDate = (item: any) => {
@@ -43,7 +53,10 @@ export default function NewsFeedView() {
   return (
     <div>
       <div className="mb-6">
-        <h2 className="text-2xl font-bold text-white">📰 News Feed</h2>
+        <h2 className="text-2xl font-bold text-white flex items-center gap-2">
+          <Newspaper className="w-6 h-6" />
+          News Feed
+        </h2>
         <p className="text-slate-400 mt-1">
           {news.length} articles{news.filter(n => !n.read).length > 0 && <> · <span className="text-indigo-400">{news.filter(n => !n.read).length} unread</span></>}
         </p>
@@ -107,7 +120,8 @@ export default function NewsFeedView() {
                   )}
                   <span className="text-xs text-slate-500">{timeAgo(item)}</span>
                   {item.sentiment && (
-                    <span className={`px-2 py-0.5 rounded-full text-xs ${sentimentStyle(item.sentiment)}`}>
+                    <span className={`px-2 py-0.5 rounded-full text-xs flex items-center gap-1 ${sentimentStyle(item.sentiment)}`}>
+                      <SentimentIcon sentiment={item.sentiment} />
                       {item.sentiment}
                     </span>
                   )}
@@ -143,8 +157,8 @@ export default function NewsFeedView() {
                   <div className="flex items-center gap-3">
                     {item.source_url && (
                       <a href={item.source_url} target="_blank" rel="noopener noreferrer"
-                        className="text-indigo-400 hover:text-indigo-300 text-sm">
-                        Read full article ↗
+                        className="text-indigo-400 hover:text-indigo-300 text-sm flex items-center gap-1">
+                        Read full article <ExternalLink className="w-3 h-3" />
                       </a>
                     )}
                     {item.source && (

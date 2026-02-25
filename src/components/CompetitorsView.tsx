@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { type Competitor } from '@/lib/supabase'
+import { Target, AlertTriangle, TrendingUp, ExternalLink, Building } from 'lucide-react'
 
 interface Props {
   competitors: Competitor[]
@@ -50,7 +51,10 @@ export default function CompetitorsView({ competitors, loading }: Props) {
     <div>
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h2 className="text-2xl font-bold text-white">🎯 Competitors</h2>
+          <h2 className="text-2xl font-bold text-white flex items-center gap-2">
+            <Target className="w-6 h-6" />
+            Competitors
+          </h2>
           <p className="text-slate-400 mt-1">{competitors.length} competitors tracked</p>
         </div>
         <div className="flex items-center gap-3">
@@ -89,8 +93,8 @@ export default function CompetitorsView({ competitors, loading }: Props) {
               }`}
             >
               <div className="flex items-center gap-4">
-                <div className="w-10 h-10 bg-gradient-to-br from-indigo-500 to-purple-500 rounded-lg flex items-center justify-center text-white font-bold">
-                  {comp.name[0]}
+                <div className="w-10 h-10 bg-gradient-to-br from-indigo-500 to-purple-500 rounded-lg flex items-center justify-center text-white">
+                  <Building className="w-5 h-5" />
                 </div>
                 <div>
                   <div className="text-white font-medium">{comp.name}</div>
@@ -141,7 +145,10 @@ export default function CompetitorsView({ competitors, loading }: Props) {
                   </div>
                   {comp.stock_ticker && (
                     <div className="bg-slate-900/50 rounded-lg p-3">
-                      <div className="text-xs text-slate-400 mb-1">📈 {comp.stock_ticker}</div>
+                      <div className="text-xs text-slate-400 mb-1 flex items-center gap-1">
+                        <TrendingUp className="w-3 h-3" />
+                        {comp.stock_ticker}
+                      </div>
                       {comp.stock_price ? (
                         <div>
                           <div className="text-lg font-bold text-white">
@@ -164,8 +171,8 @@ export default function CompetitorsView({ competitors, loading }: Props) {
                 )}
                 {comp.domain && (
                   <a href={`https://${comp.domain}`} target="_blank" rel="noopener noreferrer"
-                    className="inline-block mt-3 text-indigo-400 hover:text-indigo-300 text-sm">
-                    Visit {comp.domain} ↗
+                    className="inline-flex items-center gap-1 mt-3 text-indigo-400 hover:text-indigo-300 text-sm">
+                    Visit {comp.domain} <ExternalLink className="w-3 h-3" />
                   </a>
                 )}
               </div>

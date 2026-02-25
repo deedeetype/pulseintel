@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { type Insight } from '@/lib/supabase'
+import { Lightbulb, AlertTriangle, Sparkles, TrendingUp, Target } from 'lucide-react'
 
 interface Props {
   insights: Insight[]
@@ -14,9 +15,15 @@ export default function InsightsView({ insights, loading }: Props) {
 
   const filtered = filterType === 'all' ? insights : insights.filter(i => i.type === filterType)
 
-  const typeIcon = (type: string) => {
-    const icons: Record<string, string> = { threat: '⚠️', opportunity: '💡', trend: '📈', recommendation: '🎯' }
-    return icons[type] || '🔍'
+  const TypeIcon = ({ type }: { type: string }) => {
+    const iconClass = "w-5 h-5"
+    switch (type) {
+      case 'threat': return <AlertTriangle className={iconClass} />
+      case 'opportunity': return <Sparkles className={iconClass} />
+      case 'trend': return <TrendingUp className={iconClass} />
+      case 'recommendation': return <Target className={iconClass} />
+      default: return <Lightbulb className={iconClass} />
+    }
   }
 
   const typeStyle = (type: string) => {
@@ -46,7 +53,10 @@ export default function InsightsView({ insights, loading }: Props) {
     <div>
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h2 className="text-2xl font-bold text-white">🤖 AI Insights</h2>
+          <h2 className="text-2xl font-bold text-white flex items-center gap-2">
+            <Lightbulb className="w-6 h-6" />
+            AI Insights
+          </h2>
           <p className="text-slate-400 mt-1">{insights.length} insights generated</p>
         </div>
         <select
@@ -67,7 +77,9 @@ export default function InsightsView({ insights, loading }: Props) {
         <div className="bg-gradient-to-br from-indigo-900/50 to-purple-900/50 border border-indigo-500/30 rounded-xl p-6 mb-6">
           <div className="flex items-start justify-between">
             <div className="flex items-start gap-3">
-              <span className="text-3xl">{typeIcon(selectedInsight.type)}</span>
+              <div className="w-12 h-12 rounded-lg bg-indigo-500/10 flex items-center justify-center text-indigo-400">
+                <TypeIcon type={selectedInsight.type} />
+              </div>
               <div>
                 <h3 className="text-xl font-bold text-white">{selectedInsight.title}</h3>
                 <div className="flex items-center gap-3 mt-2">
@@ -126,7 +138,9 @@ export default function InsightsView({ insights, loading }: Props) {
             }`}
           >
             <div className="flex items-start gap-3">
-              <span className="text-2xl">{typeIcon(insight.type)}</span>
+              <div className="w-10 h-10 rounded-lg bg-slate-800 flex items-center justify-center">
+                <TypeIcon type={insight.type} />
+              </div>
               <div className="flex-1">
                 <h3 className="text-white font-semibold mb-2">{insight.title}</h3>
                 <p className="text-slate-400 text-sm line-clamp-3">{insight.description}</p>

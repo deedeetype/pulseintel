@@ -26,7 +26,14 @@ import {
   Lightbulb, 
   Eye, 
   Settings as SettingsIcon,
-  Menu
+  Menu,
+  Search,
+  RefreshCw,
+  Plus,
+  Users,
+  AlertTriangle,
+  Sparkles,
+  TrendingUp
 } from 'lucide-react'
 
 export default function Dashboard() {
@@ -470,7 +477,7 @@ export default function Dashboard() {
                     </>
                   ) : (
                     <>
-                      <span>🔄</span>
+                      <RefreshCw className="w-4 h-4" />
                       Refresh
                     </>
                   )}
@@ -494,7 +501,7 @@ export default function Dashboard() {
                   </>
                 ) : (
                   <>
-                    <span>🔍</span>
+                    <Search className="w-4 h-4" />
                     New Scan
                   </>
                 )}
@@ -509,21 +516,22 @@ export default function Dashboard() {
             {/* KPI Cards - Clickable */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
               {[
-                { label: 'Active Competitors', value: loadingCompetitors ? '...' : activeCompetitorsCount.toString(), change: 'Tracked', trend: 'neutral', tab: 'competitors', tooltip: 'Total number of competitors identified and tracked in this scan. Click to see full list with threat scores and activity levels.' },
-                { label: 'Critical Alerts', value: loadingAlerts ? '...' : criticalAlertsCount.toString(), change: 'Requires attention', trend: criticalAlertsCount > 0 ? 'alert' : 'neutral', tab: 'alerts', tooltip: 'High-priority alerts requiring immediate attention — major competitor moves, funding rounds, or market shifts.' },
-                { label: 'New Insights', value: loadingInsights ? '...' : newInsightsCount.toString(), change: 'Generated today', trend: 'up', tab: 'insights', tooltip: 'AI-generated strategic insights including threats, opportunities, and trends detected from competitor data and news analysis.' },
-                { label: 'Avg Threat Score', value: loadingCompetitors ? '...' : avgMarketScore, change: 'Market average', trend: 'neutral', tab: 'competitors', tooltip: 'Average threat score across all tracked competitors (0-10). Higher scores indicate stronger competitive pressure in this market.' },
+                { label: 'Active Competitors', value: loadingCompetitors ? '...' : activeCompetitorsCount.toString(), change: 'Tracked', trend: 'neutral', tab: 'competitors', tooltip: 'Total number of competitors identified and tracked in this scan. Click to see full list with threat scores and activity levels.', Icon: Users },
+                { label: 'Critical Alerts', value: loadingAlerts ? '...' : criticalAlertsCount.toString(), change: 'Requires attention', trend: criticalAlertsCount > 0 ? 'alert' : 'neutral', tab: 'alerts', tooltip: 'High-priority alerts requiring immediate attention — major competitor moves, funding rounds, or market shifts.', Icon: AlertTriangle },
+                { label: 'New Insights', value: loadingInsights ? '...' : newInsightsCount.toString(), change: 'Generated today', trend: 'up', tab: 'insights', tooltip: 'AI-generated strategic insights including threats, opportunities, and trends detected from competitor data and news analysis.', Icon: Sparkles },
+                { label: 'Avg Threat Score', value: loadingCompetitors ? '...' : avgMarketScore, change: 'Market average', trend: 'neutral', tab: 'competitors', tooltip: 'Average threat score across all tracked competitors (0-10). Higher scores indicate stronger competitive pressure in this market.', Icon: TrendingUp },
               ].map((kpi) => (
                 <div
                   key={kpi.label}
                   onClick={() => setActiveTab(kpi.tab)}
                   className="bg-slate-900 border border-slate-800 rounded-xl p-6 hover:border-indigo-500/50 transition cursor-pointer group relative"
                 >
-                  <div className="mb-1">
+                  <div className="mb-1 flex items-center justify-between">
                     <h3 className="text-sm font-medium text-slate-400 flex items-center gap-1">
                       {kpi.label}
                       <span className="inline-block w-4 h-4 text-center text-xs text-slate-500 bg-slate-800 rounded-full leading-4 cursor-help">?</span>
                     </h3>
+                    <kpi.Icon className="w-5 h-5 text-slate-600" />
                   </div>
                   <div className="text-4xl font-bold text-white mb-1">{kpi.value}</div>
                   <span className={`inline-block text-xs px-2 py-0.5 rounded-full ${
