@@ -75,12 +75,6 @@ export default function Dashboard() {
     }
   }, [scans, loadingScans, selectedScanId])
   
-  // Update context filters when scan changes
-  useEffect(() => {
-    setAlertsScanFilter(selectedScanId)
-    setNewsScanFilter(selectedScanId)
-  }, [selectedScanId, setAlertsScanFilter, setNewsScanFilter])
-  
   // Fetch real data from Supabase filtered by selected scan
   const { competitors, loading: loadingCompetitors } = useCompetitors(selectedScanId)
   const { insights, loading: loadingInsights } = useInsights(selectedScanId)
@@ -88,6 +82,12 @@ export default function Dashboard() {
   // Use context for alerts and news
   const { alerts, loading: loadingAlerts, markAsRead, unreadCount: alertsUnreadCount, setScanFilter: setAlertsScanFilter } = useAlertsContext()
   const { unreadCount: unreadNewsCount, setScanFilter: setNewsScanFilter } = useNewsFeedContext()
+  
+  // Update context filters when scan changes
+  useEffect(() => {
+    setAlertsScanFilter(selectedScanId)
+    setNewsScanFilter(selectedScanId)
+  }, [selectedScanId, setAlertsScanFilter, setNewsScanFilter])
   
   const selectedScan = scans.find(s => s.id === selectedScanId)
 
