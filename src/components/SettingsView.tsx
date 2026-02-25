@@ -3,7 +3,8 @@
 import { useState, useEffect } from 'react'
 import { useSettings } from '@/contexts/SettingsContext'
 import { useUser } from '@clerk/nextjs'
-import { Settings as SettingsIcon, User, Building, Globe, Bell, Zap, Save, Plus, X, Moon, Sun } from 'lucide-react'
+import { Settings as SettingsIcon, User, Building, Globe, Bell, Zap, Save, Plus, X, Moon, Sun, RefreshCw } from 'lucide-react'
+import AutomatedScansSettings from './AutomatedScansSettings'
 
 const REGIONS = ['Global', 'North America', 'Europe', 'Asia Pacific', 'Latin America', 'Middle East & Africa']
 const INDUSTRIES = [
@@ -18,6 +19,7 @@ export default function SettingsView() {
   const { settings, updateSettings, updateProfile, updateScanPreferences, t } = useSettings()
   const [saved, setSaved] = useState(false)
   const [watchlistInput, setWatchlistInput] = useState('')
+  const [activeSection, setActiveSection] = useState<'profile' | 'scan' | 'notifications' | 'automated'>('profile')
 
   // Load onboarding data into settings on mount
   useEffect(() => {
@@ -86,6 +88,37 @@ export default function SettingsView() {
           </div>
         )}
       </div>
+
+      {/* Section Tabs */}
+      <div className="flex gap-2 mb-6 border-b border-slate-800">
+        {[
+          { id: 'profile', label: 'Profile', icon: User },
+          { id: 'scan', label: 'Scan Preferences', icon: Zap },
+          { id: 'notifications', label: 'Notifications', icon: Bell },
+          { id: 'automated', label: 'Automated Scans', icon: RefreshCw }
+        ].map((section) => {
+          const Icon = section.icon
+          return (
+            <button
+              key={section.id}
+              onClick={() => setActiveSection(section.id as any)}
+              className={`flex items-center gap-2 px-4 py-3 font-medium transition border-b-2 ${
+                activeSection === section.id
+                  ? 'text-indigo-400 border-indigo-400'
+                  : 'text-slate-500 border-transparent hover:text-slate-300'
+              }`}
+            >
+              <Icon className="w-4 h-4" />
+              {section.label}
+            </button>
+          )
+        })}
+      </div>
+
+      {/* Profile Section */}
+      {activeSection === 'profile' && (
+        <>
+      {/* Appearance */}
 
       {/* Appearance */}
       <div className={`${cardClass} mb-6`}>
@@ -337,6 +370,27 @@ export default function SettingsView() {
           </div>
         </div>
       </div>
+        </>
+      )}
+
+      {/* Scan Preferences Section */}
+      {activeSection === 'scan' && (
+        <div>
+          <p className="text-slate-400 mb-4">Scan preferences content (existing settings)</p>
+        </div>
+      )}
+
+      {/* Notifications Section */}
+      {activeSection === 'notifications' && (
+        <div>
+          <p className="text-slate-400 mb-4">Notification preferences content</p>
+        </div>
+      )}
+
+      {/* Automated Scans Section */}
+      {activeSection === 'automated' && (
+        <AutomatedScansSettings />
+      )}
     </div>
   )
 }
