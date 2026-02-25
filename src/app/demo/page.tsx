@@ -16,6 +16,36 @@ import {
   ChevronRight
 } from 'lucide-react'
 
+// Custom hook for scroll-triggered animations
+function useScrollAnimation() {
+  const elementRef = useRef<HTMLDivElement>(null)
+  const [isVisible, setIsVisible] = useState(false)
+
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) {
+          setIsVisible(true)
+        }
+      },
+      { threshold: 0.1, rootMargin: '0px 0px -100px 0px' }
+    )
+
+    const currentElement = elementRef.current
+    if (currentElement) {
+      observer.observe(currentElement)
+    }
+
+    return () => {
+      if (currentElement) {
+        observer.unobserve(currentElement)
+      }
+    }
+  }, [])
+
+  return { elementRef, isVisible }
+}
+
 export default function DemoPage() {
   const [scrollProgress, setScrollProgress] = useState(0)
   const containerRef = useRef<HTMLDivElement>(null)
@@ -172,36 +202,7 @@ export default function DemoPage() {
       />
 
       {/* Benefits Summary */}
-      <section className="relative py-32 overflow-hidden">
-        <div className="container mx-auto px-4">
-          <div className="text-center mb-16">
-            <h2 className="text-4xl md:text-5xl font-bold text-white mb-6">
-              Why Teams Love PulseIntel
-            </h2>
-            <p className="text-slate-400 text-lg max-w-2xl mx-auto">
-              Stop wasting hours on manual competitor research. Let AI do the heavy lifting.
-            </p>
-          </div>
-
-          <div className="grid md:grid-cols-3 gap-8 max-w-5xl mx-auto">
-            <BenefitCard
-              icon={<Zap className="w-8 h-8" />}
-              title="10x Faster"
-              description="Get intelligence in minutes, not hours. Our AI processes thousands of sources simultaneously."
-            />
-            <BenefitCard
-              icon={<CheckCircle2 className="w-8 h-8" />}
-              title="99% Accurate"
-              description="AI-verified sources and automated fact-checking ensure reliable intelligence."
-            />
-            <BenefitCard
-              icon={<TrendingUp className="w-8 h-8" />}
-              title="Always Current"
-              description="Real-time monitoring means you're always ahead of market shifts and competitor moves."
-            />
-          </div>
-        </div>
-      </section>
+      <BenefitsSection />
 
       {/* CTA Section */}
       <section className="relative py-32">
@@ -261,6 +262,8 @@ function ParallaxSection({
 }) {
   const sectionRef = useRef<HTMLDivElement>(null)
   const [offset, setOffset] = useState(0)
+  const { elementRef: contentRef, isVisible: contentVisible } = useScrollAnimation()
+  const { elementRef: visualRef, isVisible: visualVisible } = useScrollAnimation()
 
   useEffect(() => {
     const handleScroll = () => {
@@ -282,8 +285,15 @@ function ParallaxSection({
       <div className="container mx-auto px-4">
         <div className={`flex flex-col ${isLeft ? 'md:flex-row' : 'md:flex-row-reverse'} items-center gap-12 md:gap-20`}>
           {/* Content */}
-          <div className="flex-1">
-            <div className="inline-block text-indigo-400 font-mono text-sm mb-4 bg-indigo-500/10 px-3 py-1 rounded-full">
+          <div 
+            ref={contentRef}
+            className={`flex-1 transition-all duration-1000 ease-out ${
+              contentVisible 
+                ? 'opacity-100 translate-x-0' 
+                : `opacity-0 ${isLeft ? '-translate-x-12' : 'translate-x-12'}`
+            }`}
+          >
+            <div className="inline-block text-indigo-400 font-mono text-sm mb-4 bg-indigo-500/10 px-3 py-1 rounded-full animate-pulse">
               STEP {step}
             </div>
             <h2 className="text-4xl md:text-5xl font-bold text-white mb-6">{title}</h2>
@@ -291,7 +301,15 @@ function ParallaxSection({
             
             <ul className="space-y-3">
               {features.map((feature, idx) => (
-                <li key={idx} className="flex items-start gap-3">
+                <li 
+                  key={idx} 
+                  className={`flex items-start gap-3 transition-all duration-700 ease-out ${
+                    contentVisible 
+                      ? 'opacity-100 translate-x-0' 
+                      : 'opacity-0 -translate-x-8'
+                  }`}
+                  style={{ transitionDelay: `${idx * 150}ms` }}
+                >
                   <CheckCircle2 className="w-5 h-5 text-indigo-400 mt-1 flex-shrink-0" />
                   <span className="text-slate-300">{feature}</span>
                 </li>
@@ -300,24 +318,46 @@ function ParallaxSection({
           </div>
 
           {/* Visual */}
-          <div className="flex-1 relative">
+          <div 
+            ref={visualRef}
+            className={`flex-1 relative transition-all duration-1000 ease-out ${
+              visualVisible 
+                ? 'opacity-100 translate-y-0 scale-100' 
+                : 'opacity-0 translate-y-12 scale-95'
+            }`}
+          >
             <div 
               className="relative"
               style={{ transform: `translateY(${-offset}px)` }}
             >
               <div className={`bg-gradient-to-br ${gradient} rounded-2xl p-12 shadow-2xl border border-white/10`}>
-                <div className="text-white/90 mb-6">{icon}</div>
+                <div className="text-white/90 mb-6 animate-pulse">{icon}</div>
                 <div className="space-y-4">
-                  {/* Mock UI Elements */}
-                  <div className="bg-white/10 backdrop-blur-sm rounded-lg p-4">
-                    <div className="h-3 bg-white/30 rounded w-3/4 mb-2" />
+                  {/* Mock UI Elements with staggered animations */}
+                  <div 
+                    className={`bg-white/10 backdrop-blur-sm rounded-lg p-4 transition-all duration-700 ${
+                      visualVisible ? 'opacity-100 translate-x-0' : 'opacity-0 -translate-x-8'
+                    }`}
+                    style={{ transitionDelay: '200ms' }}
+                  >
+                    <div className="h-3 bg-white/30 rounded w-3/4 mb-2 animate-pulse" />
                     <div className="h-2 bg-white/20 rounded w-full" />
                   </div>
-                  <div className="bg-white/10 backdrop-blur-sm rounded-lg p-4">
-                    <div className="h-3 bg-white/30 rounded w-2/3 mb-2" />
+                  <div 
+                    className={`bg-white/10 backdrop-blur-sm rounded-lg p-4 transition-all duration-700 ${
+                      visualVisible ? 'opacity-100 translate-x-0' : 'opacity-0 -translate-x-8'
+                    }`}
+                    style={{ transitionDelay: '400ms' }}
+                  >
+                    <div className="h-3 bg-white/30 rounded w-2/3 mb-2 animate-pulse" style={{ animationDelay: '150ms' }} />
                     <div className="h-2 bg-white/20 rounded w-5/6" />
                   </div>
-                  <div className="flex gap-2">
+                  <div 
+                    className={`flex gap-2 transition-all duration-700 ${
+                      visualVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'
+                    }`}
+                    style={{ transitionDelay: '600ms' }}
+                  >
                     <div className="bg-white/10 backdrop-blur-sm rounded-lg p-3 flex-1 h-16" />
                     <div className="bg-white/10 backdrop-blur-sm rounded-lg p-3 flex-1 h-16" />
                   </div>
@@ -325,7 +365,7 @@ function ParallaxSection({
               </div>
               
               {/* Floating accent */}
-              <div className={`absolute -top-6 ${isLeft ? '-right-6' : '-left-6'} w-32 h-32 bg-gradient-to-br from-indigo-400 to-purple-400 rounded-full blur-3xl opacity-50`} />
+              <div className={`absolute -top-6 ${isLeft ? '-right-6' : '-left-6'} w-32 h-32 bg-gradient-to-br from-indigo-400 to-purple-400 rounded-full blur-3xl opacity-50 animate-pulse`} />
             </div>
           </div>
         </div>
@@ -334,10 +374,76 @@ function ParallaxSection({
   )
 }
 
-function BenefitCard({ icon, title, description }: { icon: React.ReactNode; title: string; description: string }) {
+function BenefitsSection() {
+  const { elementRef: titleRef, isVisible: titleVisible } = useScrollAnimation()
+  const { elementRef: cardsRef, isVisible: cardsVisible } = useScrollAnimation()
+
   return (
-    <div className="bg-slate-900/50 backdrop-blur-sm border border-slate-800 rounded-xl p-8 hover:border-indigo-500/50 transition-all group">
-      <div className="text-indigo-400 mb-4 group-hover:scale-110 transition-transform">
+    <section className="relative py-32 overflow-hidden">
+      <div className="container mx-auto px-4">
+        <div 
+          ref={titleRef}
+          className={`text-center mb-16 transition-all duration-1000 ${
+            titleVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-12'
+          }`}
+        >
+          <h2 className="text-4xl md:text-5xl font-bold text-white mb-6">
+            Why Teams Love PulseIntel
+          </h2>
+          <p className="text-slate-400 text-lg max-w-2xl mx-auto">
+            Stop wasting hours on manual competitor research. Let AI do the heavy lifting.
+          </p>
+        </div>
+
+        <div ref={cardsRef} className="grid md:grid-cols-3 gap-8 max-w-5xl mx-auto">
+          <BenefitCard
+            icon={<Zap className="w-8 h-8" />}
+            title="10x Faster"
+            description="Get intelligence in minutes, not hours. Our AI processes thousands of sources simultaneously."
+            delay={0}
+            isVisible={cardsVisible}
+          />
+          <BenefitCard
+            icon={<CheckCircle2 className="w-8 h-8" />}
+            title="99% Accurate"
+            description="AI-verified sources and automated fact-checking ensure reliable intelligence."
+            delay={200}
+            isVisible={cardsVisible}
+          />
+          <BenefitCard
+            icon={<TrendingUp className="w-8 h-8" />}
+            title="Always Current"
+            description="Real-time monitoring means you're always ahead of market shifts and competitor moves."
+            delay={400}
+            isVisible={cardsVisible}
+          />
+        </div>
+      </div>
+    </section>
+  )
+}
+
+function BenefitCard({ 
+  icon, 
+  title, 
+  description, 
+  delay, 
+  isVisible 
+}: { 
+  icon: React.ReactNode
+  title: string
+  description: string
+  delay: number
+  isVisible: boolean
+}) {
+  return (
+    <div 
+      className={`bg-slate-900/50 backdrop-blur-sm border border-slate-800 rounded-xl p-8 hover:border-indigo-500/50 hover:scale-105 transition-all duration-700 group ${
+        isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-12'
+      }`}
+      style={{ transitionDelay: `${delay}ms` }}
+    >
+      <div className="text-indigo-400 mb-4 group-hover:scale-110 group-hover:rotate-3 transition-transform duration-300">
         {icon}
       </div>
       <h3 className="text-2xl font-bold text-white mb-3">{title}</h3>
