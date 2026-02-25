@@ -21,13 +21,21 @@ const CORS = {
 
 function parseJsonArray(text: string) {
   try {
-    const match = text.match(/\[[\s\S]*\]/)
+    // Remove markdown code fences if present
+    let cleaned = text.replace(/```json\s*/g, '').replace(/```\s*/g, '')
+    
+    // Extract JSON array
+    const match = cleaned.match(/\[[\s\S]*\]/)
     if (match) {
-      return JSON.parse(match[0].replace(/,(\s*[}\]])/g, '$1'))
+      // Remove trailing commas before closing brackets
+      const fixed = match[0].replace(/,(\s*[}\]])/g, '$1')
+      return JSON.parse(fixed)
     }
-    return JSON.parse(text)
+    
+    // Try parsing directly
+    return JSON.parse(cleaned)
   } catch (e) {
-    console.error('JSON parse error:', e)
+    console.error('JSON parse error:', e, 'Raw text:', text.slice(0, 200))
     return []
   }
 }
@@ -114,7 +122,9 @@ JSON: {"company_name": "X", "industry": "Y", "description": "1-2 sentence descri
   }
   
   try {
-    const match = content.match(/\{[\s\S]*\}/)
+    // Remove markdown code fences if present
+    const cleaned = content.replace(/```json\s*/g, '').replace(/```\s*/g, '').trim()
+    const match = cleaned.match(/\{[\s\S]*\}/)
     if (match) {
       const parsed = JSON.parse(match[0])
       return { 
@@ -124,7 +134,7 @@ JSON: {"company_name": "X", "industry": "Y", "description": "1-2 sentence descri
       }
     }
   } catch (e) {
-    console.error('Detect parse error:', e, 'content:', content)
+    console.error('Detect parse error:', e, 'content:', content.slice(0, 300))
   }
   return { company_name: 'Unknown', industry: 'Technology', description: '' }
 }
@@ -387,7 +397,9 @@ JSON object with ticker as key: {"AAPL": {"price": 178.50, "currency": "USD", "c
       const stockData = await stockRes.json()
       const stockContent = stockData?.choices?.[0]?.message?.content
       if (stockContent) {
-        const match = stockContent.match(/\{[\s\S]*\}/)
+        // Remove markdown code fences if present
+        const cleaned = stockContent.replace(/```json\s*/g, '').replace(/```\s*/g, '').trim()
+        const match = cleaned.match(/\{[\s\S]*\}/)
         if (match) {
           stockPrices = JSON.parse(match[0].replace(/,(\s*[}\]])/g, '$1'))
         }
