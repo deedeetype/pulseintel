@@ -34,7 +34,8 @@ import {
   AlertTriangle,
   Sparkles,
   TrendingUp,
-  Hand
+  Hand,
+  CheckCircle2
 } from 'lucide-react'
 
 export default function Dashboard() {
@@ -55,6 +56,7 @@ export default function Dashboard() {
   const [isScanning, setIsScanning] = useState(false)
   const [scanProgress, setScanProgress] = useState('')
   const [scanProgressPercent, setScanProgressPercent] = useState(0)
+  const [scanCancelled, setScanCancelled] = useState(false)
   const [initialAlertId, setInitialAlertId] = useState<string | null>(null)
   const [initialCompetitorId, setInitialCompetitorId] = useState<string | null>(null)
   const [showAllNews, setShowAllNews] = useState(false)
@@ -153,6 +155,7 @@ export default function Dashboard() {
   // Run scan - orchestrate steps from frontend with incremental scan support
   async function handleRunScan() {
     setIsScanning(true)
+    setScanCancelled(false)
     
     try {
       let industry = scanIndustry
@@ -162,6 +165,7 @@ export default function Dashboard() {
       if ((industry === 'auto' || !industry) && companyUrl) {
         setScanProgress('🔎 Analyzing company website...')
         const detected = await callStep('detect', { companyUrl })
+        if (scanCancelled) throw new Error('Scan cancelled')
         industry = detected.industry
         companyName = detected.company_name
         setScanProgress(`✓ Detected: ${companyName} → ${industry}`)
@@ -170,6 +174,8 @@ export default function Dashboard() {
         setTimeout(() => setIsScanning(false), 2000)
         return
       }
+
+      if (scanCancelled) throw new Error('Scan cancelled')
 
       // Step 0: Create scan record OR reuse existing profile
       setScanProgress(`Initializing ${industry} scan...`)
@@ -180,6 +186,7 @@ export default function Dashboard() {
         companyName: companyName || undefined,
         userId: user?.id // Pass Clerk user ID
       })
+      if (scanCancelled) throw new Error('Scan cancelled')
       const { scanId, isRefresh } = initResult
       
       let companies: any[] = []
@@ -213,16 +220,21 @@ export default function Dashboard() {
           regions: settings.scanPreferences.targetRegions,
           watchlist 
         })
+        if (scanCancelled) throw new Error('Scan cancelled')
         companies = competitorsResult.companies
         compCount = competitorsResult.count
         setScanProgress(`✓ Found ${compCount} competitors.`)
         setScanProgressPercent(40)
       }
       
+      if (scanCancelled) throw new Error('Scan cancelled')
+      
       // Step 2: Collect news via Perplexity
       setScanProgress(`📰 Collecting recent ${industry} news...`)
       setScanProgressPercent(60)
       const { news, count: newsCount } = await callStep('news', { industry })
+      
+      if (scanCancelled) throw new Error('Scan cancelled')
       
       // Step 3: Analyze + write to Supabase (incremental if refresh)
       setScanProgress(`✓ ${newsCount} news items. 🧠 AI analysis...`)
@@ -234,6 +246,8 @@ export default function Dashboard() {
         news,
         isRefresh
       })
+      
+      if (scanCancelled) throw new Error('Scan cancelled')
       
       // Done!
       setScanProgressPercent(100)
@@ -254,15 +268,32 @@ export default function Dashboard() {
       }, 2500)
       
     } catch (error: any) {
-      setScanProgress('❌ Scan failed. Please try again.')
-      setScanProgressPercent(0)
-      console.error('Scan error:', error)
-      setTimeout(() => {
-        setIsScanning(false)
-        setShowScanModal(false)
-        setScanProgress('')
-      }, 3000)
+      if (error.message === 'Scan cancelled') {
+        setScanProgress('🛑 Scan cancelled')
+        setScanProgressPercent(0)
+        setTimeout(() => {
+          setIsScanning(false)
+          setShowScanModal(false)
+          setScanProgress('')
+          setScanProgressPercent(0)
+        }, 1500)
+      } else {
+        setScanProgress('❌ Scan failed. Please try again.')
+        setScanProgressPercent(0)
+        console.error('Scan error:', error)
+        setTimeout(() => {
+          setIsScanning(false)
+          setShowScanModal(false)
+          setScanProgress('')
+          setScanProgressPercent(0)
+        }, 3000)
+      }
     }
+  }
+  
+  const handleCancelScan = () => {
+    setScanCancelled(true)
+    setScanProgress('🛑 Cancelling scan...')
   }
 
   const sidebarWidth = sidebarCollapsed ? 'w-16' : 'w-64'
@@ -832,57 +863,105 @@ export default function Dashboard() {
 
             {scanProgress && (
               <div className="mb-4">
-                <div className={`p-4 rounded-lg mb-2 ${
-                  scanProgress.startsWith('❌') 
+                <div className={`p-4 rounded-lg mb-3 ${
+                  scanProgress.includes('Cancelled') || scanProgress.includes('🛑')
+                    ? 'bg-orange-500/10 border border-orange-500/30'
+                    : scanProgress.startsWith('❌') 
                     ? 'bg-red-500/10 border border-red-500/30' 
                     : scanProgress.startsWith('✅')
                     ? 'bg-green-500/10 border border-green-500/30'
                     : 'bg-indigo-500/10 border border-indigo-500/30'
                 }`}>
-                  <p className={`text-sm font-medium ${
-                    scanProgress.startsWith('❌') 
-                      ? 'text-red-300' 
-                      : scanProgress.startsWith('✅')
-                      ? 'text-green-300'
-                      : 'text-indigo-300'
-                  }`}>{scanProgress}</p>
+                  <div className="flex items-center gap-3">
+                    {scanProgress.includes('Analyzing') && <Search className="w-5 h-5 text-indigo-400 animate-pulse" />}
+                    {scanProgress.includes('Initializing') && <Sparkles className="w-5 h-5 text-indigo-400 animate-pulse" />}
+                    {scanProgress.includes('Finding') && <Target className="w-5 h-5 text-indigo-400 animate-pulse" />}
+                    {scanProgress.includes('Collecting') && <Newspaper className="w-5 h-5 text-indigo-400 animate-pulse" />}
+                    {scanProgress.includes('analysis') && <TrendingUp className="w-5 h-5 text-indigo-400 animate-pulse" />}
+                    {scanProgress.includes('Refreshing') && <RefreshCw className="w-5 h-5 text-indigo-400 animate-spin" />}
+                    {scanProgress.startsWith('✅') && <CheckCircle2 className="w-5 h-5 text-green-400" />}
+                    {scanProgress.startsWith('❌') && <AlertTriangle className="w-5 h-5 text-red-400" />}
+                    {scanProgress.includes('🛑') && <Hand className="w-5 h-5 text-orange-400" />}
+                    
+                    <div className="flex-1">
+                      <p className={`text-sm font-medium ${
+                        scanProgress.includes('Cancelled') || scanProgress.includes('🛑')
+                          ? 'text-orange-300'
+                          : scanProgress.startsWith('❌') 
+                          ? 'text-red-300' 
+                          : scanProgress.startsWith('✅')
+                          ? 'text-green-300'
+                          : 'text-indigo-300'
+                      }`}>
+                        {scanProgress.replace(/[🔎✓📰🧠✅❌🔄🛑🗑️]/g, '').trim()}
+                      </p>
+                      {isScanning && !scanProgress.includes('Cancelled') && !scanProgress.includes('🛑') && (
+                        <p className="text-xs text-slate-500 mt-1">
+                          {scanProgressPercent < 30 ? 'This takes about 20-30 seconds. Hang tight!' 
+                           : scanProgressPercent < 70 ? 'Great progress! AI is working hard for you...'
+                           : scanProgressPercent < 95 ? 'Almost there! Finalizing your intelligence...'
+                           : 'Just a moment more!'}
+                        </p>
+                      )}
+                    </div>
+                  </div>
                 </div>
-                {!scanProgress.startsWith('❌') && (
-                  <div className="h-2 bg-slate-800 rounded-full overflow-hidden">
+                {!scanProgress.startsWith('❌') && !scanProgress.includes('🛑') && (
+                  <div className="relative h-2 bg-slate-800 rounded-full overflow-hidden">
                     <div 
-                      className="h-full bg-gradient-to-r from-indigo-500 to-cyan-500 transition-all duration-500"
+                      className="h-full bg-gradient-to-r from-indigo-500 via-purple-500 to-cyan-500 transition-all duration-500 ease-out relative"
                       style={{ width: `${scanProgressPercent}%` }}
-                    />
+                    >
+                      {/* Shimmer effect */}
+                      <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/30 to-transparent" 
+                           style={{
+                             backgroundSize: '200% 100%',
+                             animation: 'shimmer 2s infinite'
+                           }} 
+                      />
+                    </div>
                   </div>
                 )}
               </div>
             )}
+            
+            <style jsx>{`
+              @keyframes shimmer {
+                0% { background-position: -200% 0; }
+                100% { background-position: 200% 0; }
+              }
+            `}</style>
 
             <div className="flex gap-3">
-              <button
-                onClick={() => {
-                  setShowScanModal(false)
-                  setScanProgress('')
-                }}
-                disabled={isScanning}
-                className="flex-1 px-4 py-2 bg-slate-800 hover:bg-slate-700 disabled:opacity-50 text-white rounded-lg font-medium transition"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleRunScan}
-                disabled={isScanning}
-                className="flex-1 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white rounded-lg font-medium transition flex items-center justify-center gap-2"
-              >
-                {isScanning ? (
-                  <>
-                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                    Scanning...
-                  </>
-                ) : (
-                  'Start Scan'
-                )}
-              </button>
+              {isScanning ? (
+                <button
+                  onClick={handleCancelScan}
+                  className="flex-1 px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg font-medium transition flex items-center justify-center gap-2"
+                >
+                  <Hand className="w-4 h-4" />
+                  Cancel Scan
+                </button>
+              ) : (
+                <>
+                  <button
+                    onClick={() => {
+                      setShowScanModal(false)
+                      setScanProgress('')
+                      setScanProgressPercent(0)
+                    }}
+                    className="flex-1 px-4 py-2 bg-slate-800 hover:bg-slate-700 text-white rounded-lg font-medium transition"
+                  >
+                    Close
+                  </button>
+                  <button
+                    onClick={handleRunScan}
+                    className="flex-1 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-medium transition flex items-center justify-center gap-2"
+                  >
+                    <Search className="w-4 h-4" />
+                    Start Scan
+                  </button>
+                </>
+              )}
             </div>
           </div>
         </div>
@@ -890,3 +969,5 @@ export default function Dashboard() {
     </div>
   )
 }
+
+/* Add shimmer animation keyframes */
