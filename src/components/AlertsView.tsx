@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { useAlertsContext } from '@/contexts/AlertsContext'
 import { type Alert } from '@/lib/supabase'
+import { DollarSign, Rocket, Users, Newspaper, TrendingUp, FileText, Bell } from 'lucide-react'
 
 export default function AlertsView() {
   const { alerts, loading, markAsRead } = useAlertsContext()
@@ -30,9 +31,16 @@ export default function AlertsView() {
     return colors[priority] || colors.info
   }
 
-  const categoryIcon = (category: string | null) => {
-    const icons: Record<string, string> = { funding: '💰', product: '🚀', hiring: '👥', news: '📰', market: '📈' }
-    return icons[category || ''] || '📋'
+  const CategoryIcon = ({ category }: { category: string | null }) => {
+    const iconClass = "w-5 h-5"
+    switch (category) {
+      case 'funding': return <DollarSign className={iconClass} />
+      case 'product': return <Rocket className={iconClass} />
+      case 'hiring': return <Users className={iconClass} />
+      case 'news': return <Newspaper className={iconClass} />
+      case 'market': return <TrendingUp className={iconClass} />
+      default: return <FileText className={iconClass} />
+    }
   }
 
   const timeAgo = (date: string) => {
@@ -53,7 +61,10 @@ export default function AlertsView() {
     <div>
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h2 className="text-2xl font-bold text-white">🔔 Alerts</h2>
+          <h2 className="text-2xl font-bold text-white flex items-center gap-2">
+            <Bell className="w-6 h-6" />
+            Alerts
+          </h2>
           <p className="text-slate-400 mt-1">
             {alerts.filter(a => !a.read).length} unread · {alerts.filter(a => a.priority === 'critical').length} critical
           </p>
@@ -120,7 +131,10 @@ export default function AlertsView() {
                       {alert.priority}
                     </span>
                     {alert.category && (
-                      <span className="text-xs text-slate-500">{categoryIcon(alert.category)} {alert.category}</span>
+                      <span className="text-xs text-slate-500 flex items-center gap-1">
+                        <CategoryIcon category={alert.category} />
+                        {alert.category}
+                      </span>
                     )}
                     <span className="text-xs text-slate-500">{timeAgo(alert.created_at)}</span>
                   </div>
@@ -134,7 +148,9 @@ export default function AlertsView() {
               {isExpanded && (
                 <div className="px-4 pb-4 pt-2 bg-slate-800/30 border-t border-slate-700/50">
                   <div className="flex items-start gap-3 mb-3">
-                    <span className="text-3xl">{categoryIcon(alert.category)}</span>
+                    <div className="w-10 h-10 rounded-lg bg-indigo-500/10 flex items-center justify-center text-indigo-400">
+                      <CategoryIcon category={alert.category} />
+                    </div>
                     <div className="flex-1">
                       <h3 className="text-lg font-bold text-white mb-2">{alert.title}</h3>
                       {alert.description && (
