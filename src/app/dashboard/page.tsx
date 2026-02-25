@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
 import { useUser, UserButton, useAuth } from '@clerk/nextjs'
@@ -56,7 +56,7 @@ export default function Dashboard() {
   const [isScanning, setIsScanning] = useState(false)
   const [scanProgress, setScanProgress] = useState('')
   const [scanProgressPercent, setScanProgressPercent] = useState(0)
-  const [scanCancelled, setScanCancelled] = useState(false)
+  const scanCancelledRef = useRef(false)
   const [initialAlertId, setInitialAlertId] = useState<string | null>(null)
   const [initialCompetitorId, setInitialCompetitorId] = useState<string | null>(null)
   const [showAllNews, setShowAllNews] = useState(false)
@@ -155,7 +155,7 @@ export default function Dashboard() {
   // Run scan - orchestrate steps from frontend with incremental scan support
   async function handleRunScan() {
     setIsScanning(true)
-    setScanCancelled(false)
+    scanCancelledRef.current = false
     
     try {
       let industry = scanIndustry
@@ -165,7 +165,7 @@ export default function Dashboard() {
       if ((industry === 'auto' || !industry) && companyUrl) {
         setScanProgress('🔎 Analyzing company website...')
         const detected = await callStep('detect', { companyUrl })
-        if (scanCancelled) throw new Error('Scan cancelled')
+        if (scanCancelledRef.current) throw new Error('Scan cancelled')
         industry = detected.industry
         companyName = detected.company_name
         setScanProgress(`✓ Detected: ${companyName} → ${industry}`)
@@ -175,7 +175,7 @@ export default function Dashboard() {
         return
       }
 
-      if (scanCancelled) throw new Error('Scan cancelled')
+      if (scanCancelledRef.current) throw new Error('Scan cancelled')
 
       // Step 0: Create scan record OR reuse existing profile
       setScanProgress(`Initializing ${industry} scan...`)
@@ -186,7 +186,7 @@ export default function Dashboard() {
         companyName: companyName || undefined,
         userId: user?.id // Pass Clerk user ID
       })
-      if (scanCancelled) throw new Error('Scan cancelled')
+      if (scanCancelledRef.current) throw new Error('Scan cancelled')
       const { scanId, isRefresh } = initResult
       
       let companies: any[] = []
@@ -194,6 +194,7 @@ export default function Dashboard() {
       
       // Step 1: Find competitors (skip if refreshing existing profile)
       if (isRefresh) {
+        if (scanCancelledRef.current) throw new Error('Scan cancelled')
         setScanProgress(`🔄 Refreshing ${industry} data...`)
         // Fetch existing competitor count for display
         const res = await fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/rest/v1/competitors?scan_id=eq.${scanId}&select=id`, {
@@ -202,6 +203,7 @@ export default function Dashboard() {
             'Authorization': `Bearer ${process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY}`,
           }
         })
+        if (scanCancelledRef.current) throw new Error('Scan cancelled')
         const existingCompetitors = await res.json()
         compCount = existingCompetitors?.length || 0
         setScanProgress(`✓ Reusing existing ${compCount} competitors from profile.`)
@@ -209,6 +211,7 @@ export default function Dashboard() {
         // Pass empty companies array for analyze step
         companies = []
       } else {
+        if (scanCancelledRef.current) throw new Error('Scan cancelled')
         setScanProgress('🔍 Finding competitors via AI...')
         setScanProgressPercent(20)
         const watchlist = settings.scanPreferences.watchlist || []
@@ -220,21 +223,21 @@ export default function Dashboard() {
           regions: settings.scanPreferences.targetRegions,
           watchlist 
         })
-        if (scanCancelled) throw new Error('Scan cancelled')
+        if (scanCancelledRef.current) throw new Error('Scan cancelled')
         companies = competitorsResult.companies
         compCount = competitorsResult.count
         setScanProgress(`✓ Found ${compCount} competitors.`)
         setScanProgressPercent(40)
       }
       
-      if (scanCancelled) throw new Error('Scan cancelled')
+      if (scanCancelledRef.current) throw new Error('Scan cancelled')
       
       // Step 2: Collect news via Perplexity
       setScanProgress(`📰 Collecting recent ${industry} news...`)
       setScanProgressPercent(60)
       const { news, count: newsCount } = await callStep('news', { industry })
       
-      if (scanCancelled) throw new Error('Scan cancelled')
+      if (scanCancelledRef.current) throw new Error('Scan cancelled')
       
       // Step 3: Analyze + write to Supabase (incremental if refresh)
       setScanProgress(`✓ ${newsCount} news items. 🧠 AI analysis...`)
@@ -247,7 +250,7 @@ export default function Dashboard() {
         isRefresh
       })
       
-      if (scanCancelled) throw new Error('Scan cancelled')
+      if (scanCancelledRef.current) throw new Error('Scan cancelled')
       
       // Done!
       setScanProgressPercent(100)
@@ -292,8 +295,9 @@ export default function Dashboard() {
   }
   
   const handleCancelScan = () => {
-    setScanCancelled(true)
+    scanCancelledRef.current = true
     setScanProgress('🛑 Cancelling scan...')
+    console.log('[CANCEL] Scan cancellation requested, flag set to:', scanCancelledRef.current)
   }
 
   const sidebarWidth = sidebarCollapsed ? 'w-16' : 'w-64'
