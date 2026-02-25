@@ -60,7 +60,7 @@ export function useAlerts(scanId?: string, limit?: number) {
 
       if (error) {
         // Revert on error
-        console.error('Error marking alert as read:', err)
+        console.error('Error marking alert as read:', error)
         await fetchAlerts()
       }
     } catch (err) {
