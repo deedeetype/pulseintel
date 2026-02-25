@@ -7,7 +7,6 @@
  */
 
 import type { Handler, HandlerEvent } from "@netlify/functions"
-import type { Schedule } from "@netlify/functions"
 
 const CORS_HEADERS = {
   'Access-Control-Allow-Origin': '*',
@@ -206,7 +205,6 @@ export const handler: Handler = async (event: HandlerEvent) => {
   }
 }
 
-// Run every hour
-export const config: Schedule = {
-  schedule: "0 * * * *" // Cron: every hour at minute 0
-}
+// Netlify Scheduled Function Config
+// Runs every hour at minute 0
+export const schedule = "0 * * * *"
