@@ -643,7 +643,7 @@ export default function Dashboard() {
         )}
 
         {activeTab === 'alerts' && (
-          <AlertsView initialAlertId={initialAlertId} />
+          <AlertsView />
         )}
 
         {activeTab === 'insights' && (
@@ -651,7 +651,7 @@ export default function Dashboard() {
         )}
 
         {activeTab === 'news' && (
-          <NewsFeedView scanId={selectedScanId} />
+          <NewsFeedView />
         )}
 
         {activeTab === 'mywatch' && (
