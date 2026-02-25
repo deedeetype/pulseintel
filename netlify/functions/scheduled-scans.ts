@@ -34,6 +34,8 @@ interface Scan {
   industry: string
   company_url?: string
   company_name?: string
+  refresh_count?: number
+  last_refreshed_at?: string
 }
 
 // Helper to call scan-step function
