@@ -5,7 +5,8 @@
 
 import type { Config } from "@netlify/functions"
 
-export default async (req: Request) => {
+// Named export 'handler' instead of default
+export const handler = async (req: Request) => {
   console.log('[TEST-SCHEDULED] Function invoked at', new Date().toISOString())
   
   try {
