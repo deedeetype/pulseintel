@@ -151,6 +151,15 @@ export default async function handler(
   req: NextApiRequest,
   res: NextApiResponse
 ) {
+  // Verify cron secret (security)
+  const cronSecret = req.headers['x-cron-secret']
+  const expectedSecret = process.env.CRON_SECRET
+  
+  if (expectedSecret && cronSecret !== expectedSecret) {
+    console.log('[CRON-REFRESH-SCANS] Unauthorized: Invalid or missing secret')
+    return res.status(401).json({ error: 'Unauthorized' })
+  }
+  
   console.log('[CRON-REFRESH-SCANS] Running at', new Date().toISOString())
   
   try {
@@ -266,8 +275,5 @@ export default async function handler(
   }
 }
 
-// Next.js Scheduled API Route Config
-export const config = {
-  type: 'experimental-scheduled' as const,
-  schedule: '0 * * * *'  // Every hour at minute 0 (PRODUCTION)
-}
+// No longer using experimental-scheduled (unreliable)
+// Now triggered by GitHub Actions workflow every hour

@@ -1,0 +1,25 @@
+name: Hourly Scan Refresh
+
+on:
+  schedule:
+    # Run every hour at minute 0 (UTC)
+    - cron: '0 * * * *'
+  workflow_dispatch: # Allow manual trigger for testing
+
+jobs:
+  refresh-scans:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Trigger scheduled refresh
+        run: |
+          curl -X POST https://pulseintel.netlify.app/api/cron/refresh-scans \
+            -H "Content-Type: application/json" \
+            -H "X-Cron-Secret: ${{ secrets.CRON_SECRET }}" \
+            -w "\nHTTP Status: %{http_code}\n" \
+            -s -S
+      
+      - name: Log completion
+        run: |
+          echo "✅ Scheduled refresh triggered successfully"
+          echo "Timestamp: $(date -u)"
