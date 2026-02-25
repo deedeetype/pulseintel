@@ -62,9 +62,14 @@ export default function AutomatedScansSettings() {
 
   const fetchScansAndSchedules = async () => {
     try {
-      // Fetch user's scans
-      // TODO: Replace with proper Clerk user ID after Stripe integration
-      const userId = user?.id || '2db9243c-9c2b-4c3d-bd1e-48f80f39dfd7' // Fallback to DEMO_USER_ID
+      // Fetch user's scans using Clerk user ID
+      const userId = user?.id
+      
+      if (!userId) {
+        console.error('[AutomatedScans] No user ID available')
+        setLoading(false)
+        return
+      }
       
       console.log('[AutomatedScans] Fetching scans for user:', userId)
       
@@ -106,10 +111,16 @@ export default function AutomatedScansSettings() {
   const handleSaveSchedule = async (scanId: string, schedule: Partial<ScanSchedule>) => {
     setSaving(scanId)
     try {
-      const userId = user?.id || '2db9243c-9c2b-4c3d-bd1e-48f80f39dfd7'
+      const userId = user?.id
+      if (!userId) {
+        alert('User ID not available')
+        setSaving(null)
+        return
+      }
+      
       const existing = schedules[scanId]
       
-      console.log('[AutomatedScans] Saving schedule for scan:', scanId, 'existing:', !!existing)
+      console.log('[AutomatedScans] Saving schedule for scan:', scanId, 'user:', userId, 'existing:', !!existing)
       
       if (existing) {
         // Update
