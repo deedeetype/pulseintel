@@ -103,17 +103,11 @@ async function refreshScan(scan: Scan) {
   }
 }
 
-export const handler: Handler = async (event: HandlerEvent) => {
-  // Handle CORS preflight
-  if (event.httpMethod === 'OPTIONS') {
-    return {
-      statusCode: 200,
-      headers: CORS_HEADERS,
-      body: ''
-    }
-  }
-
+export default async (req: Request) => {
+  const { next_run } = await req.json()
+  
   console.log('[SCHEDULED-SCANS] Running at', new Date().toISOString())
+  console.log('[SCHEDULED-SCANS] Next run:', next_run)
   
   try {
     // Fetch all enabled schedules that are due (next_run_at <= NOW)
@@ -185,25 +179,23 @@ export const handler: Handler = async (event: HandlerEvent) => {
     
     console.log(`[SCHEDULED-SCANS] Completed: ${successful} successful, ${failed} failed`)
     
-    return {
-      statusCode: 200,
-      headers: CORS_HEADERS,
-      body: JSON.stringify({
-        message: 'Scheduled scans processed',
-        total: schedules.length,
-        successful,
-        failed,
-        timestamp: new Date().toISOString()
-      })
-    }
+    return new Response(JSON.stringify({
+      message: 'Scheduled scans processed',
+      total: schedules.length,
+      successful,
+      failed,
+      timestamp: new Date().toISOString()
+    }), {
+      status: 200,
+      headers: { 'Content-Type': 'application/json' }
+    })
     
   } catch (error: any) {
     console.error('[SCHEDULED-SCANS] Error:', error)
-    return {
-      statusCode: 500,
-      headers: CORS_HEADERS,
-      body: JSON.stringify({ error: error.message })
-    }
+    return new Response(JSON.stringify({ error: error.message }), {
+      status: 500,
+      headers: { 'Content-Type': 'application/json' }
+    })
   }
 }
 
