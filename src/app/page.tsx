@@ -90,9 +90,12 @@ export default function LandingPage() {
               Start Free Trial
               <ChevronRight className="w-5 h-5" />
             </Link>
-            <button className="border border-slate-700 hover:border-slate-600 text-white px-8 py-4 rounded-lg font-semibold text-lg transition-colors">
+            <Link 
+              href="/demo"
+              className="border border-slate-700 hover:border-slate-600 text-white px-8 py-4 rounded-lg font-semibold text-lg transition-colors"
+            >
               Watch Demo
-            </button>
+            </Link>
           </div>
 
           <div className="mt-12 flex items-center justify-center gap-8 text-slate-500 text-sm">
