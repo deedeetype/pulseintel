@@ -208,7 +208,8 @@ export const handler: Handler = async (event: HandlerEvent) => {
 }
 
 // Netlify Scheduled Function Config
-// Runs every hour at minute 0
+// TEST: Runs every 5 minutes for quick testing
+// PRODUCTION: Change to "0 * * * *" (hourly)
 export const config: Config = {
-  schedule: "0 * * * *"
+  schedule: "*/5 * * * *"  // Every 5 minutes
 }
