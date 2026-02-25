@@ -195,5 +195,5 @@ export default async function handler(
 // Next.js Scheduled API Route Config
 export const config = {
   type: 'experimental-scheduled' as const,
-  schedule: '*/5 * * * *'  // Every 5 minutes for testing
+  schedule: '0 * * * *'  // Every hour at minute 0 (PRODUCTION)
 }
