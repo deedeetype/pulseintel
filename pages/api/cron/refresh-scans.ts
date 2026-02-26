@@ -71,6 +71,7 @@ async function refreshScan(scan: Scan, logId: string) {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         step: 'analyze',
+        scanId: scan.id,  // ← FIX: Add missing scanId!
         industry: scan.industry,
         competitors: [],
         news: newsData.articles || [],
