@@ -15,11 +15,17 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
 
   try {
+    console.log('[API /scans/list] Starting...')
+    console.log('[API /scans/list] SUPABASE_URL:', SUPABASE_URL)
+    console.log('[API /scans/list] Has service key:', !!SUPABASE_SERVICE_KEY)
+    
     // Get Clerk user ID
     const { userId } = getAuth(req)
+    console.log('[API /scans/list] Clerk userId:', userId)
     
     if (!userId) {
-      return res.status(401).json({ error: 'Unauthorized' })
+      console.error('[API /scans/list] No userId from getAuth()')
+      return res.status(401).json({ error: 'Unauthorized - no userId' })
     }
 
     console.log('[API /scans/list] Fetching scans for user:', userId)
