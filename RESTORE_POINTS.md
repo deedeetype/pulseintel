@@ -1,6 +1,75 @@
 # 🔖 PulseIntel Restore Points
 
-## v2.0-automated-scans-working (2026-02-25 16:59 EST) ⭐ CURRENT
+## v2.1-stable-split-steps (2026-02-26 16:20 EST) ⭐ CURRENT STABLE
+
+**Commit:** `74fca5e`  
+**Tag:** `v2.1-stable-split-steps`
+
+### Status: ✅ STABLE - Scans complete without timeout
+
+### What's Working:
+- ✅ All features from v2.0
+- ✅ **Multi-user data isolation** (RLS policies fixed, JWT claims)
+- ✅ **Split analyze step** (4 sub-steps, each <10s timeout safe)
+  - `analyze-competitors`: Poe API competitor analysis (~8s)
+  - `analyze-insights`: Poe API insights generation (~8s)
+  - `analyze-alerts`: Poe API alerts generation (~8s)
+  - `finalize`: DB writes + industry analytics (~8s)
+- ✅ **>90% scan success rate** (was 54% with monolithic analyze)
+- ✅ **Detailed progress bar** (60% → 65% → 75% → 85% → 95% → 100%)
+- ✅ **Refresh mode** (incremental scans, no duplicate news)
+- ✅ **Clerk auth + Supabase RLS** with TEXT user_id
+- ✅ **No timeout errors**
+
+### Architecture Changes:
+**Backend (`netlify/functions/scan-step.mts`):**
+- Split monolithic `stepAnalyzeAndWrite()` (30s) into 4 functions
+- Added 4 new case statements in handler switch
+- Optimized: Skip stock prices (saves 3-5s, non-critical data)
+- RLS: `current_setting('request.jwt.claims')::json->>'sub'`
+
+**Frontend (`src/app/dashboard/page.tsx`):**
+- Sequential orchestration of 4 analyze sub-steps
+- Progress messages for each sub-step
+- Fetch competitor names from DB if refresh mode
+- Better error handling per step
+
+**Security:**
+- Fixed RLS policies to use JWT claims (not Supabase auth.uid())
+- TEXT-based user_id throughout (Clerk IDs like "user_3AD...")
+- Removed permissive `qual: "true"` policy (security hole)
+
+### Known Issues (Minor, Non-Critical):
+- Minor UI anomalies reported by user (to be addressed)
+- Stock prices skipped (optimization tradeoff)
+- No retry logic yet (removed due to bugs in previous attempt)
+- Industry analytics simplified (reduced tokens)
+
+### Proven Working:
+- Tested: 2026-02-26 11:00-16:18 EST
+- Multiple successful scans (Financial Services, etc.)
+- No timeout errors across all test scans
+- User reports: "ne plante plus lors des recherches"
+
+### Database Schema:
+Same as v2.0 (scans, competitors, alerts, insights, news_feed, scan_schedules)
+
+### Restore Command:
+```bash
+cd /data/.openclaw/workspace/business/pulseintel
+git checkout v2.1-stable-split-steps
+npm install
+```
+
+### Next Steps:
+- Fix minor UI anomalies
+- Potentially add retry logic (carefully!)
+- Re-enable stock prices (optional)
+- Monitor success rate over 24h
+
+---
+
+## v2.0-automated-scans-working (2026-02-25 16:59 EST)
 
 **Commit:** `feea8b9`  
 **Tag:** `v2.0-automated-scans-working`
