@@ -6,9 +6,15 @@
   package = "@netlify/plugin-nextjs"
 
 [functions]
-  # Increase timeout to 26 seconds (requires Pro plan)
   node_bundler = "esbuild"
   directory = "netlify/functions"
+
+# Background function configuration (up to 15 minutes timeout)
+[functions."scan-step"]
+  node_bundler = "esbuild"
+
+[functions."scan-step".background]
+  enabled = true
 
 # Removed - scheduled-scans.mts not used anymore (using Next.js API route instead)
   
