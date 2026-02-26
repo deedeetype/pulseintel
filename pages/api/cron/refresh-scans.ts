@@ -75,7 +75,8 @@ async function refreshScan(scan: Scan, logId: string) {
         industry: scan.industry,
         competitors: [],
         news: newsData.news || [],
-        isRefresh: true
+        isRefresh: true,
+        userId: scan.user_id
       })
     })
     

@@ -167,7 +167,8 @@ async function stepInit(industry: string, companyUrl?: string, companyName?: str
       
       return { 
         scanId: existingScan.id, 
-        isRefresh: true
+        isRefresh: true,
+        userId: actualUserId
       }
     }
   }
@@ -182,11 +183,11 @@ async function stepInit(industry: string, companyUrl?: string, companyName?: str
     refresh_count: 0
   })
   
-  return { scanId: scan.id, isRefresh: false }
+  return { scanId: scan.id, isRefresh: false, userId: actualUserId }
 }
 
 // Step 1: Find competitors via Perplexity
-async function stepCompetitors(industry: string, scanId: string, companyUrl?: string, maxCompetitors?: number, regions?: string[], watchlist?: string[]) {
+async function stepCompetitors(industry: string, scanId: string, companyUrl?: string, maxCompetitors?: number, regions?: string[], watchlist?: string[], userId?: string) {
   const max = maxCompetitors || 15
   const regionStr = regions && regions.length > 0 && !regions.includes('Global') ? ` Focus on companies operating in: ${regions.join(', ')}.` : ''
   const watchlistStr = watchlist && watchlist.length > 0 ? `\n\nIMPORTANT: You MUST include these companies in the results: ${watchlist.join(', ')}.` : ''
@@ -293,7 +294,8 @@ async function stepCopyCompetitors(previousScanId: string, newScanId: string) {
 }
 
 // Step 3: Analyze with Claude + write everything to Supabase (supports incremental scans)
-async function stepAnalyzeAndWrite(industry: string, scanId: string, companies: any[], news: any[], isRefresh?: boolean) {
+async function stepAnalyzeAndWrite(industry: string, scanId: string, companies: any[], news: any[], isRefresh?: boolean, userId?: string) {
+  const actualUserId = userId || DEMO_USER_ID
   // If refresh, fetch existing competitors to use in insights/alerts generation
   let competitorNames: string[] = []
   if (isRefresh) {
@@ -452,7 +454,7 @@ JSON object with ticker as key: {"AAPL": {"price": 178.50, "currency": "USD", "c
     analyzed.map((c: any) => {
       const stockInfo = c.stock_ticker ? stockPrices[c.stock_ticker] : null
       return {
-        user_id: DEMO_USER_ID, scan_id: scanId,
+        user_id: actualUserId, scan_id: scanId,
         name: c.name, domain: companies.find((co: any) => co.name === c.name)?.domain || null,
         industry: c.industry || industry, threat_score: c.threat_score || 5.0,
         activity_level: c.activity_level || 'medium', description: c.description || '',
@@ -470,7 +472,7 @@ JSON object with ticker as key: {"AAPL": {"price": 178.50, "currency": "USD", "c
   // Always insert new alerts (accumulate over time)
   const insertedAlerts = alerts.length > 0 ? await supabasePost('alerts',
     alerts.map((a: any) => ({
-      user_id: DEMO_USER_ID, scan_id: scanId,
+      user_id: actualUserId, scan_id: scanId,
       competitor_id: insertedCompetitors[0]?.id || null,
       title: a.title, description: a.description,
       priority: a.priority || 'info', category: a.category || 'news', read: false
@@ -480,7 +482,7 @@ JSON object with ticker as key: {"AAPL": {"price": 178.50, "currency": "USD", "c
   // Always insert new insights (accumulate over time)
   const insertedInsights = insights.length > 0 ? await supabasePost('insights',
     insights.map((i: any) => ({
-      user_id: DEMO_USER_ID, scan_id: scanId,
+      user_id: actualUserId, scan_id: scanId,
       type: i.type || 'recommendation', title: i.title, description: i.description,
       confidence: i.confidence || 0.7, impact: i.impact || 'medium',
       action_items: i.action_items || []
@@ -490,7 +492,7 @@ JSON object with ticker as key: {"AAPL": {"price": 178.50, "currency": "USD", "c
   // Insert only NEW news (already filtered for duplicates during refresh)
   const insertedNews = newNewsOnly.length > 0 ? await supabasePost('news_feed',
     newNewsOnly.map((n: any) => ({
-      user_id: DEMO_USER_ID, scan_id: scanId,
+      user_id: actualUserId, scan_id: scanId,
       title: n.title, summary: n.summary || n.description,
       source: n.source || 'Perplexity', source_url: n.url || null,
       relevance_score: 0.5, sentiment: 'neutral', tags: n.tags || []
@@ -652,7 +654,7 @@ const handler: Handler = async (event: HandlerEvent, context: HandlerContext) =>
         result = await stepInit(industry, companyUrl, companyName, userId)
         break
       case 'competitors':
-        result = await stepCompetitors(industry, scanId, companyUrl, maxCompetitors, regions, watchlist)
+        result = await stepCompetitors(industry, scanId, companyUrl, maxCompetitors, regions, watchlist, userId)
         break
       case 'news':
         result = await stepNews(industry)
@@ -662,7 +664,7 @@ const handler: Handler = async (event: HandlerEvent, context: HandlerContext) =>
           return { statusCode: 400, headers: CORS, body: JSON.stringify({ error: 'scanId required for analyze step' }) }
         }
         // companies can be empty array for refresh mode
-        result = await stepAnalyzeAndWrite(industry, scanId, companies || [], news || [], isRefresh)
+        result = await stepAnalyzeAndWrite(industry, scanId, companies || [], news || [], isRefresh, userId)
         break
       default:
         return { statusCode: 400, headers: CORS, body: JSON.stringify({ error: `Unknown step: ${step}` }) }

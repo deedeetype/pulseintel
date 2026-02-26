@@ -223,7 +223,8 @@ export default function Dashboard() {
           companyUrl: companyUrl || undefined, 
           maxCompetitors: settings.scanPreferences.maxCompetitors, 
           regions: settings.scanPreferences.targetRegions,
-          watchlist 
+          watchlist,
+          userId: user?.id
         })
         if (scanCancelledRef.current) throw new Error('Scan cancelled')
         companies = competitorsResult.companies
@@ -249,7 +250,8 @@ export default function Dashboard() {
         scanId, 
         companies, 
         news,
-        isRefresh
+        isRefresh,
+        userId: user?.id
       })
       
       if (scanCancelledRef.current) throw new Error('Scan cancelled')
@@ -490,7 +492,8 @@ export default function Dashboard() {
                         scanId, 
                         companies: [], 
                         news,
-                        isRefresh: true 
+                        isRefresh: true,
+                        userId: user?.id
                       })
                       
                       setScanProgress(`✅ Refreshed! ${results.alerts} new alerts, ${results.insights} insights, ${results.news} articles`)
