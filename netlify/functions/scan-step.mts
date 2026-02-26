@@ -10,31 +10,7 @@ const SUPABASE_URL = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABAS
 const SUPABASE_KEY = process.env.SUPABASE_SERVICE_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY
 const PERPLEXITY_KEY = process.env.PERPLEXITY_API_KEY
 const POE_KEY = process.env.POE_API_KEY
-const DEMO_USER_ID = process.env.DEMO_USER_ID || '2db9243c-9c2b-4c3d-bd1e-48f80f39dfd7'
-
-// Helper: Convert Clerk user ID to Supabase UUID
-async function getSupabaseUserId(clerkId?: string): Promise<string> {
-  if (!clerkId) return DEMO_USER_ID
-  
-  try {
-    const res = await fetch(
-      `${SUPABASE_URL}/rest/v1/users?clerk_id=eq.${clerkId}&select=id&limit=1`,
-      {
-        headers: {
-          'apikey': SUPABASE_KEY!,
-          'Authorization': `Bearer ${SUPABASE_KEY}`,
-        }
-      }
-    )
-    const users = await res.json()
-    if (users && users.length > 0) {
-      return users[0].id
-    }
-  } catch (e) {
-    console.error('Failed to map Clerk ID to Supabase UUID:', e)
-  }
-  return DEMO_USER_ID
-}
+const DEMO_USER_ID = process.env.DEMO_USER_ID || 'demo_user'
 
 const CORS = {
   'Access-Control-Allow-Origin': '*',
@@ -165,8 +141,8 @@ JSON: {"company_name": "X", "industry": "Y", "description": "1-2 sentence descri
 
 // Step 0: Create scan record OR reuse existing profile (incremental model)
 async function stepInit(industry: string, companyUrl?: string, companyName?: string, userId?: string) {
-  // Convert Clerk ID to Supabase UUID
-  const actualUserId = await getSupabaseUserId(userId)
+  // Use Clerk ID directly (TEXT, no conversion needed)
+  const actualUserId = userId || DEMO_USER_ID
   
   // Check for existing completed profile with same industry + company_url
   if (companyUrl) {
@@ -320,8 +296,8 @@ async function stepCopyCompetitors(previousScanId: string, newScanId: string) {
 
 // Step 3: Analyze with Claude + write everything to Supabase (supports incremental scans)
 async function stepAnalyzeAndWrite(industry: string, scanId: string, companies: any[], news: any[], isRefresh?: boolean, userId?: string) {
-  // Convert Clerk ID to Supabase UUID
-  const actualUserId = await getSupabaseUserId(userId)
+  // Use Clerk ID directly (TEXT, no conversion needed)
+  const actualUserId = userId || DEMO_USER_ID
   // If refresh, fetch existing competitors to use in insights/alerts generation
   let competitorNames: string[] = []
   if (isRefresh) {
