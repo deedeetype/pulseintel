@@ -321,8 +321,46 @@ async function stepAnalyzeAndWrite(industry: string, scanId: string, companies: 
     competitorNames = companies.map((c: any) => c.name)
   }
   
+  // If refresh, filter out duplicate news based on source_url
+  let newNewsOnly = news
+  if (isRefresh) {
+    try {
+      const existingNewsRes = await fetch(
+        `${SUPABASE_URL}/rest/v1/news_feed?scan_id=eq.${scanId}&select=source_url`,
+        {
+          headers: {
+            'apikey': SUPABASE_KEY!,
+            'Authorization': `Bearer ${SUPABASE_KEY}`,
+          }
+        }
+      )
+      if (existingNewsRes.ok) {
+        const existingNews = await existingNewsRes.json()
+        const existingUrls = new Set(
+          existingNews.map((n: any) => n.source_url).filter(Boolean)
+        )
+        newNewsOnly = news.filter((n: any) => n.url && !existingUrls.has(n.url))
+        console.log(`[REFRESH] Filtered news: ${news.length} total, ${newNewsOnly.length} new, ${existingUrls.size} existing`)
+      }
+    } catch (e) {
+      console.error('Error fetching existing news:', e)
+      // On error, proceed with all news
+    }
+    
+    // If no new news during refresh, skip AI analysis
+    if (newNewsOnly.length === 0) {
+      console.log('[REFRESH] No new news - skipping insights/alerts generation')
+      return {
+        competitors: 0,
+        alerts: 0,
+        insights: 0,
+        news: 0
+      }
+    }
+  }
+  
   // Fallback: if no competitors found, skip insights/alerts generation
-  if (competitorNames.length === 0 && news.length === 0) {
+  if (competitorNames.length === 0 && newNewsOnly.length === 0) {
     console.warn('No competitors or news - skipping insights/alerts')
     return {
       competitors: 0,
@@ -344,16 +382,16 @@ JSON array only: [{"name":"X","threat_score":7.5,"activity_level":"high","descri
     )
   }
   
-  // Always generate new insights and alerts (even on refresh)
+  // Always generate new insights and alerts (even on refresh) - but only from NEW news
   promises.push(
     poeRequest(`3-4 strategic insights for ${industry}.
 Companies: ${competitorNames.slice(0,5).join(', ')}
-News: ${news.slice(0,8).map((n: any) => n.title).join('; ')}
+News: ${newNewsOnly.slice(0,8).map((n: any) => n.title).join('; ')}
 JSON: [{"type":"threat|opportunity|trend|recommendation","title":"X","description":"2-3 sentences","confidence":0.85,"impact":"high","action_items":["X"]}]`),
     
     poeRequest(`5-7 alerts from ${industry} news.
 Companies: ${competitorNames.slice(0,8).join(', ')}
-News: ${news.slice(0,12).map((n: any) => n.title).join('; ')}
+News: ${newNewsOnly.slice(0,12).map((n: any) => n.title).join('; ')}
 JSON: [{"title":"X","description":"Context","priority":"critical|attention|info","category":"funding|product|hiring|news|market"}]`)
   )
 
@@ -449,9 +487,9 @@ JSON object with ticker as key: {"AAPL": {"price": 178.50, "currency": "USD", "c
     }))
   ) : []
 
-  // Always insert new news (accumulate over time)
-  const insertedNews = news.length > 0 ? await supabasePost('news_feed',
-    news.map((n: any) => ({
+  // Insert only NEW news (already filtered for duplicates during refresh)
+  const insertedNews = newNewsOnly.length > 0 ? await supabasePost('news_feed',
+    newNewsOnly.map((n: any) => ({
       user_id: DEMO_USER_ID, scan_id: scanId,
       title: n.title, summary: n.summary || n.description,
       source: n.source || 'Perplexity', source_url: n.url || null,
