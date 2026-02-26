@@ -61,13 +61,14 @@ export async function POST(req: Request) {
         const updatedAt = new Date(userData.updated_at).toISOString()
 
         // Upsert to Supabase users table (only fields that exist in schema)
-        const res = await fetch(`${SUPABASE_URL}/rest/v1/users`, {
+        // Use resolution=merge-duplicates with on_conflict to properly handle updates
+        const res = await fetch(`${SUPABASE_URL}/rest/v1/users?on_conflict=clerk_id`, {
           method: 'POST',
           headers: {
             'apikey': SUPABASE_KEY!,
             'Authorization': `Bearer ${SUPABASE_KEY}`,
             'Content-Type': 'application/json',
-            'Prefer': 'resolution=merge-duplicates'
+            'Prefer': 'resolution=merge-duplicates,return=minimal'
           },
           body: JSON.stringify({
             clerk_id: userId,
@@ -80,7 +81,11 @@ export async function POST(req: Request) {
         if (!res.ok) {
           const text = await res.text()
           console.error('Supabase upsert failed:', res.status, text)
-          return NextResponse.json({ error: 'Database error' }, { status: 500 })
+          // Don't fail on 409 (conflict) - it means user already exists which is fine
+          if (res.status !== 409) {
+            return NextResponse.json({ error: 'Database error' }, { status: 500 })
+          }
+          console.log('ℹ️ User already exists (409), continuing...')
         }
 
         console.log(`✅ User ${eventType === 'user.created' ? 'created' : 'updated'}: ${userId}`)
