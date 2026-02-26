@@ -212,6 +212,8 @@ export default async function handler(
     // Create refresh logs for each scan
     const logIds: Record<string, string> = {}
     for (const scan of scans) {
+      console.log(`[CRON-REFRESH-SCANS] Creating log for scan ${scan.id}, user ${scan.user_id}`)
+      
       const logRes = await fetch(`${SUPABASE_URL}/rest/v1/refresh_logs`, {
         method: 'POST',
         headers: {
@@ -227,7 +229,18 @@ export default async function handler(
           status: 'running'
         })
       })
+      
+      console.log(`[CRON-REFRESH-SCANS] Log creation response status: ${logRes.status}`)
+      
+      if (!logRes.ok) {
+        const errorText = await logRes.text()
+        console.error(`[CRON-REFRESH-SCANS] Failed to create log: ${logRes.status} - ${errorText}`)
+        // Continue même si le log échoue
+        continue
+      }
+      
       const logData = await logRes.json()
+      console.log(`[CRON-REFRESH-SCANS] Log created:`, logData)
       logIds[scan.id] = logData[0]?.id
     }
     
