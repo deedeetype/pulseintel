@@ -21,10 +21,14 @@
 - **Description:** Settings → Automated Scans montrait "No profiles yet" malgré que l'utilisateur a créé des scans
 - **Severity:** High (feature blocker)
 - **Impact:** Settings - utilisateurs ne peuvent pas configurer auto-refresh
-- **Root Cause:** RLS policies utilisent JWT claims qui ne sont pas automatiquement passés par Supabase client avec Clerk auth. `current_setting('request.jwt.claims')` fonctionne server-side mais pas client-side.
-- **Status:** ✅ FIXED (commit afac49c)
-- **Fix:** Créé API route `/api/scans/list` qui utilise `getAuth()` Clerk + service role key pour fetch les scans, bypassing RLS. AutomatedScansSettings appelle maintenant l'API route au lieu de Supabase direct.
-- **Tested:** En attente de test utilisateur (refresh page Settings)
+- **Root Cause:** RLS policies utilisent JWT claims qui ne fonctionnent pas avec Supabase client + Clerk auth
+- **Status:** ✅ FIXED & TESTED (commits afac49c, afcc04c)
+- **Fix:** 
+  - Créé API route `/api/scans/list?userId=XXX`
+  - Frontend passe userId en query param (protected by Clerk auth)
+  - API utilise service role key pour bypass RLS
+  - Évite besoin de clerkMiddleware() setup
+- **Tested:** 2026-02-26 17:33 - Profiles s'affichent correctement ✅
 
 ### 3. [TO BE DOCUMENTED]
 - **Description:** (waiting for user to specify)
