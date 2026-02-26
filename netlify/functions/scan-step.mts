@@ -475,17 +475,38 @@ async function stepFinalize(
   if (!isRefresh) {
     console.log('[FINALIZE] Generating industry analytics...')
     try {
+      const competitorNames = competitors.map((c: any) => c.name).slice(0, 8).join(', ')
+      
       const analyticsRes = await fetch('https://api.perplexity.ai/chat/completions', {
         method: 'POST',
         headers: { 'Authorization': `Bearer ${PERPLEXITY_KEY}`, 'Content-Type': 'application/json' },
         body: JSON.stringify({
           model: 'sonar-pro',
           messages: [
-            { role: 'system', content: 'Market research analyst. Respond with valid JSON only. No markdown.' },
-            { role: 'user', content: `Market analytics for ${industry} (2024-2026 data). JSON: {"market_size_billions": 150, "cagr_percent": 8.5, "key_trends": [{"trend": "X", "impact": "high"}], "sources": [{"name": "Report", "url": "https://..."}]}` }
+            { role: 'system', content: 'Market research analyst. Respond with valid JSON only. No markdown, no code fences. Use real, sourced data from recent industry reports (2024-2026 only).' },
+            { role: 'user', content: `Provide detailed market analytics data for the ${industry} industry based on real market research reports and data from 2024-2026 only. Do not use outdated data.
+
+Include a "sources" array with the report names and URLs you used.
+
+JSON object only:
+{
+  "market_size_billions": 150,
+  "market_size_year": 2025,
+  "projected_size_billions": 220,
+  "projected_year": 2030,
+  "cagr_percent": 8.5,
+  "top_segments": [{"name": "Segment A", "share_percent": 35}],
+  "growth_drivers": ["Driver 1", "Driver 2", "Driver 3"],
+  "key_trends": [{"trend": "Trend name", "impact": "high|medium|low", "description": "1 sentence"}],
+  "funding_activity": {"total_billions": 12, "deal_count": 350, "avg_deal_millions": 34, "yoy_change_percent": 15},
+  "market_leaders_share": [{"name": "Company", "share_percent": 15}],
+  "regional_distribution": [{"region": "North America", "share_percent": 40}],
+  "sources": [{"name": "Report or source name", "url": "https://..."}]
+}
+Use the actual known competitor names from this list where possible: ${competitorNames || 'N/A'}` }
           ],
           temperature: 0.3,
-          max_tokens: 2000
+          max_tokens: 3000
         })
       })
       
@@ -493,10 +514,12 @@ async function stepFinalize(
       const analyticsContent = analyticsData?.choices?.[0]?.message?.content
       
       if (analyticsContent) {
-        const match = analyticsContent.match(/\{[\s\S]*\}/)
+        // Remove markdown code fences if present
+        const cleaned = analyticsContent.replace(/```json\s*/g, '').replace(/```\s*/g, '').trim()
+        const match = cleaned.match(/\{[\s\S]*\}/)
         if (match) {
           industryAnalytics = JSON.parse(match[0].replace(/,(\s*[}\]])/g, '$1'))
-          console.log('[FINALIZE] Industry analytics generated')
+          console.log('[FINALIZE] Industry analytics generated with full KPIs')
         }
       }
     } catch (e) {
