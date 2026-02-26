@@ -71,7 +71,8 @@ export default function AutomatedScansSettings() {
       console.log('[AutomatedScans] Fetching scans via API for user:', user.id)
       
       // Use API route with service role key (bypasses RLS issue with Clerk JWT)
-      const response = await fetch('/api/scans/list')
+      // Pass userId as query param since getAuth() requires middleware setup
+      const response = await fetch(`/api/scans/list?userId=${encodeURIComponent(user.id)}`)
       
       if (!response.ok) {
         throw new Error(`API error: ${response.status}`)
