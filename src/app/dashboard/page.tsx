@@ -158,6 +158,7 @@ export default function Dashboard() {
   async function handleRunScan() {
     setIsScanning(true)
     scanCancelledRef.current = false
+    let scanId: string | undefined
     
     try {
       let industry = scanIndustry
@@ -189,7 +190,8 @@ export default function Dashboard() {
         userId: user?.id // Pass Clerk user ID
       })
       if (scanCancelledRef.current) throw new Error('Scan cancelled')
-      const { scanId, isRefresh } = initResult
+      scanId = initResult.scanId
+      const isRefresh = initResult.isRefresh
       
       let companies: any[] = []
       let compCount = 0
@@ -278,6 +280,27 @@ export default function Dashboard() {
       if (error.message === 'Scan cancelled') {
         setScanProgress('🛑 Scan cancelled')
         setScanProgressPercent(0)
+        // Mark scan as cancelled/failed if we have scanId
+        if (scanId) {
+          try {
+            const token = await getToken({ template: 'supabase' })
+            await fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/rest/v1/scans?id=eq.${scanId}`, {
+              method: 'PATCH',
+              headers: {
+                'apikey': process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '',
+                'Authorization': `Bearer ${token || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY}`,
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({
+                status: 'failed',
+                error_message: 'Scan cancelled by user',
+                completed_at: new Date().toISOString()
+              })
+            })
+          } catch (e) {
+            console.error('Failed to mark scan as cancelled:', e)
+          }
+        }
         setTimeout(() => {
           setIsScanning(false)
           setShowScanModal(false)
@@ -288,6 +311,29 @@ export default function Dashboard() {
         setScanProgress('❌ Scan failed. Please try again.')
         setScanProgressPercent(0)
         console.error('Scan error:', error)
+        
+        // Mark scan as failed in database
+        if (scanId) {
+          try {
+            const token = await getToken({ template: 'supabase' })
+            await fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/rest/v1/scans?id=eq.${scanId}`, {
+              method: 'PATCH',
+              headers: {
+                'apikey': process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '',
+                'Authorization': `Bearer ${token || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY}`,
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({
+                status: 'failed',
+                error_message: error.message || 'Unknown error',
+                completed_at: new Date().toISOString()
+              })
+            })
+          } catch (e) {
+            console.error('Failed to mark scan as failed:', e)
+          }
+        }
+        
         setTimeout(() => {
           setIsScanning(false)
           setShowScanModal(false)
