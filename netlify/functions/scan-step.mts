@@ -919,9 +919,51 @@ const handler: Handler = async (event: HandlerEvent, context: HandlerContext) =>
         if (!scanId) {
           return { statusCode: 400, headers: CORS, body: JSON.stringify({ error: 'scanId required for analyze step' }) }
         }
-        // companies can be empty array for refresh mode
+        // DEPRECATED - use analyze-competitors, analyze-insights, analyze-alerts, finalize instead
         result = await stepAnalyzeAndWrite(industry, scanId, companies || [], news || [], isRefresh, userId)
         break
+      
+      // NEW SPLIT STEPS
+      case 'analyze-competitors':
+        if (!scanId) {
+          return { statusCode: 400, headers: CORS, body: JSON.stringify({ error: 'scanId required' }) }
+        }
+        result = await stepAnalyzeCompetitors(industry, scanId, companies || [], userId)
+        break
+        
+      case 'analyze-insights':
+        if (!scanId) {
+          return { statusCode: 400, headers: CORS, body: JSON.stringify({ error: 'scanId required' }) }
+        }
+        const { competitorNames: insightCompNames } = JSON.parse(event.body || '{}')
+        result = await stepAnalyzeInsights(industry, scanId, news || [], insightCompNames || [], userId)
+        break
+        
+      case 'analyze-alerts':
+        if (!scanId) {
+          return { statusCode: 400, headers: CORS, body: JSON.stringify({ error: 'scanId required' }) }
+        }
+        const { competitorNames: alertCompNames } = JSON.parse(event.body || '{}')
+        result = await stepAnalyzeAlerts(industry, scanId, news || [], alertCompNames || [], userId)
+        break
+        
+      case 'finalize':
+        if (!scanId) {
+          return { statusCode: 400, headers: CORS, body: JSON.stringify({ error: 'scanId required' }) }
+        }
+        const { competitors: finalizeCompetitors, insights: finalizeInsights, alerts: finalizeAlerts } = JSON.parse(event.body || '{}')
+        result = await stepFinalize(
+          industry, 
+          scanId, 
+          finalizeCompetitors || [], 
+          finalizeInsights || [], 
+          finalizeAlerts || [], 
+          news || [], 
+          isRefresh || false, 
+          userId
+        )
+        break
+      
       default:
         return { statusCode: 400, headers: CORS, body: JSON.stringify({ error: `Unknown step: ${step}` }) }
     }
