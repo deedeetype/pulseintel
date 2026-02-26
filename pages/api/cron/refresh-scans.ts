@@ -63,7 +63,7 @@ async function refreshScan(scan: Scan, logId: string) {
     }
     
     const newsData = await newsRes.json()
-    console.log(`[REFRESH] Collected ${newsData.articles?.length || 0} news items`)
+    console.log(`[REFRESH] Collected ${newsData.news?.length || 0} news items`)
     
     // Step 2: Analyze and generate insights
     const analyzeRes = await fetch(`${process.env.URL}/.netlify/functions/scan-step`, {
@@ -71,10 +71,10 @@ async function refreshScan(scan: Scan, logId: string) {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         step: 'analyze',
-        scanId: scan.id,  // ← FIX: Add missing scanId!
+        scanId: scan.id,
         industry: scan.industry,
         competitors: [],
-        news: newsData.articles || [],
+        news: newsData.news || [],
         isRefresh: true
       })
     })
