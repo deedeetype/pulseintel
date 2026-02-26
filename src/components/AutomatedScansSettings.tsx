@@ -62,47 +62,36 @@ export default function AutomatedScansSettings() {
 
   const fetchScansAndSchedules = async () => {
     try {
-      // Fetch user's scans using Clerk user ID
-      const userId = user?.id
-      
-      if (!userId) {
+      if (!user?.id) {
         console.error('[AutomatedScans] No user ID available')
         setLoading(false)
         return
       }
       
-      console.log('[AutomatedScans] Fetching scans for user:', userId)
+      console.log('[AutomatedScans] Fetching scans via API for user:', user.id)
       
-      const { data: scansData, error: scansError } = await supabase
-        .from('scans')
-        .select('id, industry, company_name, company_url')
-        .eq('user_id', userId)
-        .eq('status', 'completed')
-        .order('created_at', { ascending: false })
-
-      if (scansError) throw scansError
+      // Use API route with service role key (bypasses RLS issue with Clerk JWT)
+      const response = await fetch('/api/scans/list')
+      
+      if (!response.ok) {
+        throw new Error(`API error: ${response.status}`)
+      }
+      
+      const { scans: scansData, schedules: schedulesData } = await response.json()
       
       console.log('[AutomatedScans] Found scans:', scansData?.length || 0, scansData)
+      console.log('[AutomatedScans] Found schedules:', schedulesData?.length || 0)
+      
       setScans(scansData || [])
 
-      // Fetch existing schedules
-      const { data: schedulesData, error: schedulesError } = await supabase
-        .from('scan_schedules')
-        .select('*')
-        .eq('user_id', userId)
-
-      if (schedulesError) throw schedulesError
-
-      console.log('[AutomatedScans] Found schedules:', schedulesData?.length || 0)
-
-      // Convert to map by scan_id
+      // Convert schedules to map by scan_id
       const schedulesMap: Record<string, ScanSchedule> = {}
-      schedulesData?.forEach(schedule => {
+      schedulesData?.forEach((schedule: ScanSchedule) => {
         schedulesMap[schedule.scan_id] = schedule
       })
       setSchedules(schedulesMap)
     } catch (error) {
-      console.error('Error fetching scans/schedules:', error)
+      console.error('[AutomatedScans] Error fetching scans/schedules:', error)
     } finally {
       setLoading(false)
     }
