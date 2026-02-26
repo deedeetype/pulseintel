@@ -294,6 +294,260 @@ async function stepCopyCompetitors(previousScanId: string, newScanId: string) {
   return { count: 0 }
 }
 
+// ========== NEW SPLIT STEPS (replace stepAnalyzeAndWrite) ==========
+
+// Step 3a: Analyze competitors (Poe API ~8s)
+async function stepAnalyzeCompetitors(
+  industry: string,
+  scanId: string,
+  companies: any[],
+  userId?: string
+) {
+  const actualUserId = userId || DEMO_USER_ID
+  
+  console.log(`[ANALYZE-COMPETITORS] Starting for ${companies.length} companies`)
+  
+  const prompt = `Analyze ${industry} companies. Each: threat_score(0-10), activity_level(low/medium/high), description, employee_count, stock_ticker (if publicly traded, use format like "AAPL", "MSFT", "TSE:RY" for Toronto, "EPA:BNP" for Paris etc. Use null if private).
+Companies: ${companies.map((c: any) => c.name).join(', ')}
+JSON array only: [{"name":"X","threat_score":7.5,"activity_level":"high","description":"Desc","employee_count":500,"industry":"${industry}","stock_ticker":"AAPL"}]`
+
+  const response = await poeRequest(prompt)
+  const analyzed = parseJsonArray(response)
+  
+  console.log(`[ANALYZE-COMPETITORS] Analyzed ${analyzed.length} competitors`)
+  
+  return {
+    competitors: analyzed.map((c: any) => ({
+      ...c,
+      domain: companies.find((co: any) => co.name === c.name)?.domain || null
+    })),
+    count: analyzed.length
+  }
+}
+
+// Step 3b: Generate insights (Poe API ~8s)
+async function stepAnalyzeInsights(
+  industry: string,
+  scanId: string,
+  news: any[],
+  competitorNames: string[],
+  userId?: string
+) {
+  const actualUserId = userId || DEMO_USER_ID
+  
+  console.log(`[ANALYZE-INSIGHTS] Starting for ${industry}`)
+  
+  const prompt = `3-4 strategic insights for ${industry}.
+Companies: ${competitorNames.slice(0,5).join(', ')}
+News: ${news.slice(0,8).map((n: any) => n.title).join('; ')}
+JSON: [{"type":"threat|opportunity|trend|recommendation","title":"X","description":"2-3 sentences","confidence":0.85,"impact":"high","action_items":["X"]}]`
+
+  const response = await poeRequest(prompt)
+  const insights = parseJsonArray(response)
+  
+  console.log(`[ANALYZE-INSIGHTS] Generated ${insights.length} insights`)
+  
+  return {
+    insights,
+    count: insights.length
+  }
+}
+
+// Step 3c: Generate alerts (Poe API ~8s)
+async function stepAnalyzeAlerts(
+  industry: string,
+  scanId: string,
+  news: any[],
+  competitorNames: string[],
+  userId?: string
+) {
+  const actualUserId = userId || DEMO_USER_ID
+  
+  console.log(`[ANALYZE-ALERTS] Starting for ${industry}`)
+  
+  const prompt = `5-7 alerts from ${industry} news.
+Companies: ${competitorNames.slice(0,8).join(', ')}
+News: ${news.slice(0,12).map((n: any) => n.title).join('; ')}
+JSON: [{"title":"X","description":"Context","priority":"critical|attention|info","category":"funding|product|hiring|news|market"}]`
+
+  const response = await poeRequest(prompt)
+  const alerts = parseJsonArray(response)
+  
+  console.log(`[ANALYZE-ALERTS] Generated ${alerts.length} alerts`)
+  
+  return {
+    alerts,
+    count: alerts.length
+  }
+}
+
+// Step 3d: Finalize - Write all data + generate analytics (~8s)
+async function stepFinalize(
+  industry: string,
+  scanId: string,
+  competitors: any[],
+  insights: any[],
+  alerts: any[],
+  news: any[],
+  isRefresh: boolean,
+  userId?: string
+) {
+  const actualUserId = userId || DEMO_USER_ID
+  
+  console.log(`[FINALIZE] Starting for scan ${scanId}`)
+  console.log(`[FINALIZE] Data: ${competitors.length} competitors, ${insights.length} insights, ${alerts.length} alerts, ${news.length} news`)
+  
+  // Write competitors to DB (only if new scan)
+  const insertedCompetitors = !isRefresh && competitors.length > 0 ? await supabasePost('competitors',
+    competitors.map((c: any) => ({
+      user_id: actualUserId,
+      scan_id: scanId,
+      name: c.name,
+      domain: c.domain || null,
+      industry: c.industry || industry,
+      threat_score: c.threat_score || 5.0,
+      activity_level: c.activity_level || 'medium',
+      description: c.description || '',
+      employee_count: c.employee_count || null,
+      stock_ticker: c.stock_ticker || null,
+      stock_price: null,
+      stock_currency: null,
+      stock_change_percent: null,
+      sentiment_score: Math.random() * 0.5 + 0.3,
+      last_activity_date: new Date().toISOString()
+    }))
+  ) : []
+  
+  console.log(`[FINALIZE] Inserted ${insertedCompetitors.length} competitors`)
+  
+  // Write alerts
+  const insertedAlerts = alerts.length > 0 ? await supabasePost('alerts',
+    alerts.map((a: any) => ({
+      user_id: actualUserId,
+      scan_id: scanId,
+      competitor_id: insertedCompetitors[0]?.id || null,
+      title: a.title,
+      description: a.description,
+      priority: a.priority || 'info',
+      category: a.category || 'news',
+      read: false
+    }))
+  ) : []
+  
+  console.log(`[FINALIZE] Inserted ${insertedAlerts.length} alerts`)
+  
+  // Write insights
+  const insertedInsights = insights.length > 0 ? await supabasePost('insights',
+    insights.map((i: any) => ({
+      user_id: actualUserId,
+      scan_id: scanId,
+      type: i.type || 'recommendation',
+      title: i.title,
+      description: i.description,
+      confidence: i.confidence || 0.7,
+      impact: i.impact || 'medium',
+      action_items: i.action_items || []
+    }))
+  ) : []
+  
+  console.log(`[FINALIZE] Inserted ${insertedInsights.length} insights`)
+  
+  // Write news
+  const insertedNews = news.length > 0 ? await supabasePost('news_feed',
+    news.map((n: any) => ({
+      user_id: actualUserId,
+      scan_id: scanId,
+      title: n.title,
+      summary: n.summary || n.description,
+      source: n.source || 'Perplexity',
+      source_url: n.url || null,
+      relevance_score: 0.5,
+      sentiment: 'neutral',
+      tags: n.tags || []
+    }))
+  ) : []
+  
+  console.log(`[FINALIZE] Inserted ${insertedNews.length} news`)
+  
+  // Generate industry analytics (only if new scan)
+  let industryAnalytics = null
+  
+  if (!isRefresh) {
+    console.log('[FINALIZE] Generating industry analytics...')
+    try {
+      const analyticsRes = await fetch('https://api.perplexity.ai/chat/completions', {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${PERPLEXITY_KEY}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          model: 'sonar-pro',
+          messages: [
+            { role: 'system', content: 'Market research analyst. Respond with valid JSON only. No markdown.' },
+            { role: 'user', content: `Market analytics for ${industry} (2024-2026 data). JSON: {"market_size_billions": 150, "cagr_percent": 8.5, "key_trends": [{"trend": "X", "impact": "high"}], "sources": [{"name": "Report", "url": "https://..."}]}` }
+          ],
+          temperature: 0.3,
+          max_tokens: 2000
+        })
+      })
+      
+      const analyticsData = await analyticsRes.json()
+      const analyticsContent = analyticsData?.choices?.[0]?.message?.content
+      
+      if (analyticsContent) {
+        const match = analyticsContent.match(/\{[\s\S]*\}/)
+        if (match) {
+          industryAnalytics = JSON.parse(match[0].replace(/,(\s*[}\]])/g, '$1'))
+          console.log('[FINALIZE] Industry analytics generated')
+        }
+      }
+    } catch (e) {
+      console.error('[FINALIZE] Analytics generation failed (non-critical):', e)
+    }
+  }
+  
+  // Update scan status to completed
+  if (isRefresh) {
+    const res = await fetch(
+      `${SUPABASE_URL}/rest/v1/scans?id=eq.${scanId}&select=alerts_count,insights_count,news_count`,
+      {
+        headers: {
+          'apikey': SUPABASE_KEY!,
+          'Authorization': `Bearer ${SUPABASE_KEY}`,
+        }
+      }
+    )
+    const currentScan = await res.json()
+    const current = currentScan[0] || { alerts_count: 0, insights_count: 0, news_count: 0 }
+    
+    await supabasePatch('scans', `id=eq.${scanId}`, {
+      status: 'completed',
+      completed_at: new Date().toISOString(),
+      alerts_count: current.alerts_count + insertedAlerts.length,
+      insights_count: current.insights_count + insertedInsights.length,
+      news_count: current.news_count + insertedNews.length
+    })
+  } else {
+    await supabasePatch('scans', `id=eq.${scanId}`, {
+      status: 'completed',
+      completed_at: new Date().toISOString(),
+      competitors_count: insertedCompetitors.length,
+      alerts_count: insertedAlerts.length,
+      insights_count: insertedInsights.length,
+      news_count: insertedNews.length,
+      industry_analytics: industryAnalytics
+    })
+  }
+  
+  console.log('[FINALIZE] ✅ Scan completed successfully')
+  
+  return {
+    competitors: insertedCompetitors.length,
+    alerts: insertedAlerts.length,
+    insights: insertedInsights.length,
+    news: insertedNews.length
+  }
+}
+
+// ========== OLD MONOLITHIC STEP (DEPRECATED) ==========
 // Step 3: Analyze with Claude + write everything to Supabase (supports incremental scans)
 async function stepAnalyzeAndWrite(industry: string, scanId: string, companies: any[], news: any[], isRefresh?: boolean, userId?: string) {
   // Use Clerk ID directly (TEXT, no conversion needed)

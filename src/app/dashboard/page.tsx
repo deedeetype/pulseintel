@@ -244,13 +244,67 @@ export default function Dashboard() {
       
       if (scanCancelledRef.current) throw new Error('Scan cancelled')
       
-      // Step 3: Analyze + write to Supabase (incremental if refresh)
+      // Step 3: NEW SPLIT ANALYZE (4 sub-steps to avoid timeout)
       setScanProgress(`✓ ${newsCount} news items. 🧠 AI analysis...`)
-      setScanProgressPercent(80)
-      const results = await callStep('analyze', { 
+      setScanProgressPercent(60)
+      
+      // Get competitor names for context
+      let competitorNames: string[] = []
+      if (isRefresh) {
+        // Fetch from DB
+        const res = await fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/rest/v1/competitors?scan_id=eq.${scanId}&select=name`, {
+          headers: {
+            'apikey': process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '',
+            'Authorization': `Bearer ${process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY}`,
+          }
+        })
+        const existingCompetitors = await res.json()
+        competitorNames = existingCompetitors?.map((c: any) => c.name) || []
+      } else {
+        competitorNames = companies.map((c: any) => c.name)
+      }
+      
+      // Step 3a: Analyze competitors (only if new scan)
+      let competitorsData: any[] = []
+      if (!isRefresh && companies.length > 0) {
+        if (scanCancelledRef.current) throw new Error('Scan cancelled')
+        setScanProgress(`🔍 Analyzing ${companies.length} competitors...`)
+        setScanProgressPercent(65)
+        const compResult = await callStep('analyze-competitors', { 
+          industry, scanId, companies, userId: user?.id 
+        })
+        competitorsData = compResult.competitors || []
+      }
+      
+      if (scanCancelledRef.current) throw new Error('Scan cancelled')
+      
+      // Step 3b: Generate insights
+      setScanProgress(`💡 Generating strategic insights...`)
+      setScanProgressPercent(75)
+      const insightsResult = await callStep('analyze-insights', { 
+        industry, scanId, news, competitorNames, userId: user?.id 
+      })
+      
+      if (scanCancelledRef.current) throw new Error('Scan cancelled')
+      
+      // Step 3c: Generate alerts
+      setScanProgress(`🚨 Generating alerts...`)
+      setScanProgressPercent(85)
+      const alertsResult = await callStep('analyze-alerts', { 
+        industry, scanId, news, competitorNames, userId: user?.id 
+      })
+      
+      if (scanCancelledRef.current) throw new Error('Scan cancelled')
+      
+      // Step 3d: Finalize (write everything + analytics)
+      setScanProgress(`✍️ Finalizing scan...`)
+      setScanProgressPercent(95)
+      const results = await callStep('finalize', { 
         industry, 
         scanId, 
-        companies, 
+        competitors: competitorsData,
+        insights: insightsResult.insights || [],
+        alerts: alertsResult.alerts || [],
         news,
         isRefresh,
         userId: user?.id
@@ -263,7 +317,7 @@ export default function Dashboard() {
       if (isRefresh) {
         setScanProgress(`✅ Profile refreshed! ${results.alerts} new alerts, ${results.insights} new insights, ${results.news} new articles`)
       } else {
-        setScanProgress(`✅ Scan complete! ${compCount} competitors, ${results.alerts} alerts, ${results.insights} insights, ${results.news} news`)
+        setScanProgress(`✅ Scan complete! ${results.competitors} competitors, ${results.alerts} alerts, ${results.insights} insights, ${results.news} news`)
       }
       
       await refetchScans()
