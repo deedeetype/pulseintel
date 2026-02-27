@@ -33,7 +33,17 @@ export default function ActionMenu({
     try {
       await onArchive(itemId)
       setShowMenu(false)
-      window.location.reload() // Refresh to update list
+      // Soft refresh without full reload - just hide the element
+      const element = document.getElementById(`item-${itemId}`)
+      if (element) {
+        element.style.opacity = '0'
+        element.style.transition = 'opacity 0.3s'
+        setTimeout(() => {
+          window.location.reload()
+        }, 300)
+      } else {
+        window.location.reload()
+      }
     } catch (error) {
       alert('Failed to archive item')
     } finally {
@@ -46,7 +56,17 @@ export default function ActionMenu({
     try {
       await onDelete(itemId)
       setConfirmDelete(false)
-      window.location.reload()
+      // Soft refresh without full reload
+      const element = document.getElementById(`item-${itemId}`)
+      if (element) {
+        element.style.opacity = '0'
+        element.style.transition = 'opacity 0.3s'
+        setTimeout(() => {
+          window.location.reload()
+        }, 300)
+      } else {
+        window.location.reload()
+      }
     } catch (error) {
       alert('Failed to delete item')
     } finally {

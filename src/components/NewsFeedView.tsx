@@ -1,19 +1,30 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useNewsFeedContext } from '@/contexts/NewsFeedContext'
 import { useNewsActions } from '@/hooks/useNewsActions'
+import { useArchivedNews } from '@/hooks/useArchivedNews'
 import { Newspaper, ExternalLink, TrendingUp, TrendingDown, Minus, Calendar, Archive, Trash2, MoreVertical } from 'lucide-react'
 
 export default function NewsFeedView() {
-  const { news, loading, markAsRead } = useNewsFeedContext()
+  const { news, loading, markAsRead, refetch } = useNewsFeedContext()
+  const { archivedNews, loading: archivedLoading, fetchArchived } = useArchivedNews()
   const { archiveNews, deleteNews, loading: actionLoading } = useNewsActions()
   const [selectedNews, setSelectedNews] = useState<any | null>(null)
   const [filterMode, setFilterMode] = useState<'all' | 'read' | 'unread'>('all')
   const [showMenu, setShowMenu] = useState<string | null>(null)
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null)
+  const [showArchived, setShowArchived] = useState(false)
+  
+  useEffect(() => {
+    if (showArchived) {
+      fetchArchived()
+    }
+  }, [showArchived])
 
-  const filteredNews = news.filter(item => {
+  const displayNews = showArchived ? archivedNews : news
+  
+  const filteredNews = displayNews.filter(item => {
     if (filterMode === 'unread') return !item.read
     if (filterMode === 'read') return item.read
     return true
@@ -53,8 +64,8 @@ export default function NewsFeedView() {
   const handleArchive = async (newsId: string) => {
     try {
       await archiveNews(newsId)
-      // Refresh will happen automatically via context
-      window.location.reload()
+      // Refetch data to update list without full reload
+      await refetch()
     } catch (error) {
       alert('Failed to archive news')
     }
@@ -64,7 +75,7 @@ export default function NewsFeedView() {
     try {
       await deleteNews(newsId)
       setConfirmDelete(null)
-      window.location.reload()
+      await refetch()
     } catch (error) {
       alert('Failed to delete news')
     }
@@ -87,7 +98,7 @@ export default function NewsFeedView() {
       </div>
 
       {/* Filter buttons */}
-      <div className="mb-4 flex gap-2">
+      <div className="mb-4 flex gap-2 flex-wrap">
         <button
           onClick={() => setFilterMode('all')}
           className={`px-4 py-2 rounded-lg border text-sm font-medium transition ${
@@ -117,6 +128,13 @@ export default function NewsFeedView() {
           }`}
         >
           Read ({news.filter(n => n.read).length})
+        </button>
+        <button
+          onClick={() => setShowArchived(!showArchived)}
+          className="ml-auto px-4 py-2 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-400 rounded-lg text-sm font-medium transition flex items-center gap-2"
+        >
+          <Archive className="w-4 h-4" />
+          {showArchived ? 'Hide' : 'Show'} Archived
         </button>
       </div>
 
