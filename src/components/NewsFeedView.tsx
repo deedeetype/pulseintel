@@ -2,12 +2,16 @@
 
 import { useState } from 'react'
 import { useNewsFeedContext } from '@/contexts/NewsFeedContext'
-import { Newspaper, ExternalLink, TrendingUp, TrendingDown, Minus, Calendar } from 'lucide-react'
+import { useNewsActions } from '@/hooks/useNewsActions'
+import { Newspaper, ExternalLink, TrendingUp, TrendingDown, Minus, Calendar, Archive, Trash2, MoreVertical } from 'lucide-react'
 
 export default function NewsFeedView() {
   const { news, loading, markAsRead } = useNewsFeedContext()
+  const { archiveNews, deleteNews, loading: actionLoading } = useNewsActions()
   const [selectedNews, setSelectedNews] = useState<any | null>(null)
   const [filterMode, setFilterMode] = useState<'all' | 'read' | 'unread'>('all')
+  const [showMenu, setShowMenu] = useState<string | null>(null)
+  const [confirmDelete, setConfirmDelete] = useState<string | null>(null)
 
   const filteredNews = news.filter(item => {
     if (filterMode === 'unread') return !item.read
@@ -44,6 +48,26 @@ export default function NewsFeedView() {
     if (hours < 1) return 'just now'
     if (hours < 24) return `${hours}h ago`
     return `${Math.floor(hours / 24)}d ago`
+  }
+
+  const handleArchive = async (newsId: string) => {
+    try {
+      await archiveNews(newsId)
+      // Refresh will happen automatically via context
+      window.location.reload()
+    } catch (error) {
+      alert('Failed to archive news')
+    }
+  }
+
+  const handleDelete = async (newsId: string) => {
+    try {
+      await deleteNews(newsId)
+      setConfirmDelete(null)
+      window.location.reload()
+    } catch (error) {
+      alert('Failed to delete news')
+    }
   }
 
   if (loading) {
@@ -101,18 +125,19 @@ export default function NewsFeedView() {
         {filteredNews.map((item) => (
           <div key={item.id}>
             <div
-              onClick={() => { 
-                setSelectedNews(selectedNews?.id === item.id ? null : item)
-                if (!item.read) markAsRead(item.id)
-              }}
-              className={`flex items-start gap-4 p-4 rounded-xl border transition cursor-pointer ${
+              className={`flex items-start gap-4 p-4 rounded-xl border transition relative ${
                 selectedNews?.id === item.id
                   ? 'bg-slate-800 border-indigo-500/50'
                   : 'bg-slate-900 border-slate-800 hover:border-slate-700'
               }`}
             >
               {!item.read && <div className="w-2 h-2 bg-indigo-500 rounded-full mt-2 flex-shrink-0" />}
-              <div className="flex-1 min-w-0">
+              <div 
+                onClick={() => { 
+                  setSelectedNews(selectedNews?.id === item.id ? null : item)
+                  if (!item.read) markAsRead(item.id)
+                }}
+                className="flex-1 min-w-0 cursor-pointer">
                 <h3 className="text-white font-medium line-clamp-2">{item.title}</h3>
                 <div className="flex items-center gap-3 mt-2 flex-wrap">
                   {item.source && (
@@ -131,6 +156,48 @@ export default function NewsFeedView() {
                     </span>
                   )}
                 </div>
+              </div>
+              
+              {/* Actions Menu */}
+              <div className="relative">
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    setShowMenu(showMenu === item.id ? null : item.id)
+                  }}
+                  className="p-2 hover:bg-slate-700 rounded-lg transition"
+                >
+                  <MoreVertical className="w-4 h-4 text-slate-400" />
+                </button>
+                
+                {showMenu === item.id && (
+                  <div className="absolute right-0 mt-2 w-48 bg-slate-800 border border-slate-700 rounded-lg shadow-xl z-10">
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        handleArchive(item.id)
+                        setShowMenu(null)
+                      }}
+                      className="w-full px-4 py-2 text-left text-sm text-slate-300 hover:bg-slate-700 flex items-center gap-2 rounded-t-lg"
+                      disabled={actionLoading}
+                    >
+                      <Archive className="w-4 h-4" />
+                      Archive
+                    </button>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        setConfirmDelete(item.id)
+                        setShowMenu(null)
+                      }}
+                      className="w-full px-4 py-2 text-left text-sm text-red-400 hover:bg-slate-700 flex items-center gap-2 rounded-b-lg"
+                      disabled={actionLoading}
+                    >
+                      <Trash2 className="w-4 h-4" />
+                      Delete
+                    </button>
+                  </div>
+                )}
               </div>
             </div>
 
@@ -180,6 +247,33 @@ export default function NewsFeedView() {
           </div>
         )}
       </div>
+      
+      {/* Delete Confirmation Modal */}
+      {confirmDelete && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
+          <div className="bg-slate-900 border border-slate-800 rounded-xl p-6 max-w-md w-full mx-4">
+            <h3 className="text-xl font-bold text-white mb-2">Delete News Article?</h3>
+            <p className="text-slate-400 mb-6">
+              This action cannot be undone. The article will be permanently removed.
+            </p>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setConfirmDelete(null)}
+                className="flex-1 px-4 py-2 bg-slate-800 hover:bg-slate-700 text-white rounded-lg font-medium transition"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => handleDelete(confirmDelete)}
+                disabled={actionLoading}
+                className="flex-1 px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg font-medium transition disabled:opacity-50"
+              >
+                {actionLoading ? 'Deleting...' : 'Delete'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

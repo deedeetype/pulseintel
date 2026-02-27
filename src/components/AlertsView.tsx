@@ -2,14 +2,18 @@
 
 import { useState } from 'react'
 import { useAlertsContext } from '@/contexts/AlertsContext'
+import { useNewsActions } from '@/hooks/useNewsActions'
 import { type Alert } from '@/lib/supabase'
-import { DollarSign, Rocket, Users, Newspaper, TrendingUp, FileText, Bell } from 'lucide-react'
+import { DollarSign, Rocket, Users, Newspaper, TrendingUp, FileText, Bell, Archive, Trash2, MoreVertical } from 'lucide-react'
 
 export default function AlertsView() {
   const { alerts, loading, markAsRead } = useAlertsContext()
+  const { archiveAlert, deleteAlert, loading: actionLoading } = useNewsActions()
   const [expandedId, setExpandedId] = useState<string | null>(null)
   const [filterPriority, setFilterPriority] = useState<string>('all')
   const [filterCategory, setFilterCategory] = useState<string>('all')
+  const [showMenu, setShowMenu] = useState<string | null>(null)
+  const [confirmDelete, setConfirmDelete] = useState<string | null>(null)
 
   const filtered = alerts.filter(a => {
     if (filterPriority !== 'all' && a.priority !== filterPriority) return false
