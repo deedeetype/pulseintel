@@ -10,7 +10,7 @@ export function useNewsActions() {
   const { getToken } = useAuth()
   const [loading, setLoading] = useState(false)
 
-  const archiveNews = async (newsId: string) => {
+  const archiveNews = async (newsId: string): Promise<void> => {
     setLoading(true)
     try {
       const token = await getToken({ template: 'supabase' })
@@ -22,7 +22,6 @@ export function useNewsActions() {
         .eq('id', newsId)
       
       if (error) throw error
-      return true
     } catch (error) {
       console.error('Error archiving news:', error)
       throw error
@@ -31,7 +30,7 @@ export function useNewsActions() {
     }
   }
 
-  const deleteNews = async (newsId: string) => {
+  const deleteNews = async (newsId: string): Promise<void> => {
     setLoading(true)
     try {
       const token = await getToken({ template: 'supabase' })
@@ -43,7 +42,6 @@ export function useNewsActions() {
         .eq('id', newsId)
       
       if (error) throw error
-      return true
     } catch (error) {
       console.error('Error deleting news:', error)
       throw error
@@ -52,7 +50,7 @@ export function useNewsActions() {
     }
   }
 
-  const archiveAlert = async (alertId: string) => {
+  const archiveAlert = async (alertId: string): Promise<void> => {
     setLoading(true)
     try {
       const token = await getToken({ template: 'supabase' })
@@ -64,7 +62,6 @@ export function useNewsActions() {
         .eq('id', alertId)
       
       if (error) throw error
-      return true
     } catch (error) {
       console.error('Error archiving alert:', error)
       throw error
@@ -73,7 +70,7 @@ export function useNewsActions() {
     }
   }
 
-  const deleteAlert = async (alertId: string) => {
+  const deleteAlert = async (alertId: string): Promise<void> => {
     setLoading(true)
     try {
       const token = await getToken({ template: 'supabase' })
@@ -85,7 +82,6 @@ export function useNewsActions() {
         .eq('id', alertId)
       
       if (error) throw error
-      return true
     } catch (error) {
       console.error('Error deleting alert:', error)
       throw error
@@ -94,7 +90,7 @@ export function useNewsActions() {
     }
   }
 
-  const archiveInsight = async (insightId: string) => {
+  const archiveInsight = async (insightId: string): Promise<void> => {
     setLoading(true)
     try {
       const token = await getToken({ template: 'supabase' })
@@ -106,7 +102,6 @@ export function useNewsActions() {
         .eq('id', insightId)
       
       if (error) throw error
-      return true
     } catch (error) {
       console.error('Error archiving insight:', error)
       throw error
@@ -115,7 +110,7 @@ export function useNewsActions() {
     }
   }
 
-  const deleteInsight = async (insightId: string) => {
+  const deleteInsight = async (insightId: string): Promise<void> => {
     setLoading(true)
     try {
       const token = await getToken({ template: 'supabase' })
@@ -127,7 +122,6 @@ export function useNewsActions() {
         .eq('id', insightId)
       
       if (error) throw error
-      return true
     } catch (error) {
       console.error('Error deleting insight:', error)
       throw error
@@ -136,7 +130,7 @@ export function useNewsActions() {
     }
   }
 
-  const archiveCompetitor = async (competitorId: string) => {
+  const archiveCompetitor = async (competitorId: string): Promise<void> => {
     setLoading(true)
     try {
       const token = await getToken({ template: 'supabase' })
@@ -148,7 +142,6 @@ export function useNewsActions() {
         .eq('id', competitorId)
       
       if (error) throw error
-      return true
     } catch (error) {
       console.error('Error archiving competitor:', error)
       throw error
@@ -157,7 +150,7 @@ export function useNewsActions() {
     }
   }
 
-  const deleteCompetitor = async (competitorId: string) => {
+  const deleteCompetitor = async (competitorId: string): Promise<void> => {
     setLoading(true)
     try {
       const token = await getToken({ template: 'supabase' })
@@ -169,7 +162,6 @@ export function useNewsActions() {
         .eq('id', competitorId)
       
       if (error) throw error
-      return true
     } catch (error) {
       console.error('Error deleting competitor:', error)
       throw error
