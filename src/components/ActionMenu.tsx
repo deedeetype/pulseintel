@@ -14,6 +14,7 @@ interface ActionMenuProps {
   loading?: boolean
   deleteConfirmTitle?: string
   deleteConfirmMessage?: string
+  isArchived?: boolean
 }
 
 export default function ActionMenu({
@@ -22,7 +23,8 @@ export default function ActionMenu({
   onDelete,
   loading = false,
   deleteConfirmTitle = 'Delete Item?',
-  deleteConfirmMessage = 'This action cannot be undone. The item will be permanently removed.'
+  deleteConfirmMessage = 'This action cannot be undone. The item will be permanently removed.',
+  isArchived = false
 }: ActionMenuProps) {
   const [showMenu, setShowMenu] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(false)
@@ -104,7 +106,7 @@ export default function ActionMenu({
                 disabled={actionLoading}
               >
                 <Archive className="w-4 h-4" />
-                Archive
+                {isArchived ? 'Unarchive' : 'Archive'}
               </button>
               <button
                 onClick={(e) => {

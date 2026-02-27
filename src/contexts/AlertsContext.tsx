@@ -9,6 +9,7 @@ interface AlertsContextType {
   loading: boolean
   error: Error | null
   markAsRead: (id: string) => void
+  archiveAlertOptimistic: (id: string) => void
   refetch: () => void
   unreadCount: number
   setScanFilter: (scanId: string | undefined) => void
@@ -81,6 +82,11 @@ export function AlertsProvider({ children }: { children: ReactNode }) {
     }
   }
 
+  function archiveAlertOptimistic(alertId: string) {
+    // Optimistic update - remove from list immediately
+    setAlerts(prev => prev.filter(a => a.id !== alertId))
+  }
+
   const unreadCount = alerts.filter(a => !a.read).length
 
   return (
@@ -88,7 +94,8 @@ export function AlertsProvider({ children }: { children: ReactNode }) {
       alerts, 
       loading, 
       error, 
-      markAsRead, 
+      markAsRead,
+      archiveAlertOptimistic,
       refetch: fetchAlerts,
       unreadCount,
       setScanFilter

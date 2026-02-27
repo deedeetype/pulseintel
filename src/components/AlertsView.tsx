@@ -1,24 +1,75 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useAlertsContext } from '@/contexts/AlertsContext'
+import { useArchivedAlerts } from '@/hooks/useArchivedAlerts'
 import { useNewsActions } from '@/hooks/useNewsActions'
 import { type Alert } from '@/lib/supabase'
-import { DollarSign, Rocket, Users, Newspaper, TrendingUp, FileText, Bell } from 'lucide-react'
+import { DollarSign, Rocket, Users, Newspaper, TrendingUp, FileText, Bell, Archive } from 'lucide-react'
 import ActionMenu from './ActionMenu'
 
 export default function AlertsView() {
-  const { alerts, loading, markAsRead } = useAlertsContext()
-  const { archiveAlert, deleteAlert } = useNewsActions()
+  const { alerts, loading, markAsRead, archiveAlertOptimistic, refetch } = useAlertsContext()
+  const { archivedAlerts, archivedCount, loading: archivedLoading, fetchArchived, fetchArchivedCount } = useArchivedAlerts()
+  const { archiveAlert, unarchiveAlert, deleteAlert } = useNewsActions()
   const [expandedId, setExpandedId] = useState<string | null>(null)
   const [filterPriority, setFilterPriority] = useState<string>('all')
   const [filterCategory, setFilterCategory] = useState<string>('all')
+  const [showArchived, setShowArchived] = useState(false)
 
-  const filtered = alerts.filter(a => {
+  useEffect(() => {
+    fetchArchivedCount()
+  }, [])
+
+  useEffect(() => {
+    if (showArchived) {
+      fetchArchived()
+    }
+  }, [showArchived])
+
+  const displayAlerts = showArchived ? archivedAlerts : alerts
+
+  const filtered = displayAlerts.filter(a => {
     if (filterPriority !== 'all' && a.priority !== filterPriority) return false
     if (filterCategory !== 'all' && a.category !== filterCategory) return false
     return true
   })
+
+  const handleArchive = async (alertId: string) => {
+    try {
+      archiveAlertOptimistic(alertId)
+      await archiveAlert(alertId)
+      await fetchArchivedCount()
+    } catch (error) {
+      await refetch()
+      alert('Failed to archive alert')
+    }
+  }
+
+  const handleUnarchive = async (alertId: string) => {
+    try {
+      await unarchiveAlert(alertId)
+      await fetchArchived()
+      await refetch()
+      await fetchArchivedCount()
+    } catch (error) {
+      alert('Failed to unarchive alert')
+    }
+  }
+
+  const handleDelete = async (alertId: string) => {
+    try {
+      await deleteAlert(alertId)
+      if (showArchived) {
+        await fetchArchived()
+      } else {
+        await refetch()
+      }
+      await fetchArchivedCount()
+    } catch (error) {
+      alert('Failed to delete alert')
+    }
+  }
 
   const priorityStyle = (priority: string) => {
     const styles: Record<string, string> = {
@@ -95,6 +146,13 @@ export default function AlertsView() {
             <option value="news">News</option>
             <option value="market">Market</option>
           </select>
+          <button
+            onClick={() => setShowArchived(!showArchived)}
+            className="px-4 py-2 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-400 rounded-lg text-sm font-medium transition flex items-center gap-2"
+          >
+            <Archive className="w-4 h-4" />
+            {showArchived ? 'Hide' : 'Show'} Archived {archivedCount > 0 && `(${archivedCount})`}
+          </button>
         </div>
       </div>
 
@@ -145,10 +203,11 @@ export default function AlertsView() {
                 <div className="flex items-center gap-2">
                   <ActionMenu
                     itemId={alert.id}
-                    onArchive={archiveAlert}
-                    onDelete={deleteAlert}
+                    onArchive={showArchived ? handleUnarchive : handleArchive}
+                    onDelete={handleDelete}
                     deleteConfirmTitle="Delete Alert?"
                     deleteConfirmMessage="This alert will be permanently removed from your dashboard."
+                    isArchived={showArchived}
                   />
                   <div className="text-slate-500 text-sm flex-shrink-0">
                     {isExpanded ? '▲' : '▼'}

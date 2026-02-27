@@ -1,22 +1,74 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { type Insight } from '@/lib/supabase'
 import { useNewsActions } from '@/hooks/useNewsActions'
-import { Lightbulb, AlertTriangle, Sparkles, TrendingUp, Target, X } from 'lucide-react'
+import { useArchivedInsights } from '@/hooks/useArchivedInsights'
+import { Lightbulb, AlertTriangle, Sparkles, TrendingUp, Target, X, Archive } from 'lucide-react'
 import ActionMenu from './ActionMenu'
 
 interface Props {
   insights: Insight[]
   loading: boolean
+  archiveInsightOptimistic: (id: string) => void
+  refetch: () => void
 }
 
-export default function InsightsView({ insights, loading }: Props) {
-  const { archiveInsight, deleteInsight } = useNewsActions()
+export default function InsightsView({ insights, loading, archiveInsightOptimistic, refetch }: Props) {
+  const { archiveInsight, unarchiveInsight, deleteInsight } = useNewsActions()
+  const { archivedInsights, archivedCount, loading: archivedLoading, fetchArchived, fetchArchivedCount } = useArchivedInsights()
   const [selectedInsight, setSelectedInsight] = useState<Insight | null>(null)
   const [filterType, setFilterType] = useState<string>('all')
+  const [showArchived, setShowArchived] = useState(false)
 
-  const filtered = filterType === 'all' ? insights : insights.filter(i => i.type === filterType)
+  useEffect(() => {
+    fetchArchivedCount()
+  }, [])
+
+  useEffect(() => {
+    if (showArchived) {
+      fetchArchived()
+    }
+  }, [showArchived])
+
+  const displayInsights = showArchived ? archivedInsights : insights
+  const filtered = filterType === 'all' ? displayInsights : displayInsights.filter(i => i.type === filterType)
+
+  const handleArchive = async (insightId: string) => {
+    try {
+      archiveInsightOptimistic(insightId)
+      await archiveInsight(insightId)
+      await fetchArchivedCount()
+    } catch (error) {
+      await refetch()
+      alert('Failed to archive insight')
+    }
+  }
+
+  const handleUnarchive = async (insightId: string) => {
+    try {
+      await unarchiveInsight(insightId)
+      await fetchArchived()
+      await refetch()
+      await fetchArchivedCount()
+    } catch (error) {
+      alert('Failed to unarchive insight')
+    }
+  }
+
+  const handleDelete = async (insightId: string) => {
+    try {
+      await deleteInsight(insightId)
+      if (showArchived) {
+        await fetchArchived()
+      } else {
+        await refetch()
+      }
+      await fetchArchivedCount()
+    } catch (error) {
+      alert('Failed to delete insight')
+    }
+  }
 
   const TypeIcon = ({ type }: { type: string }) => {
     const iconClass = "w-5 h-5"
@@ -62,17 +114,26 @@ export default function InsightsView({ insights, loading }: Props) {
           </h2>
           <p className="text-slate-400 mt-1">{insights.length} insights generated</p>
         </div>
-        <select
-          value={filterType}
-          onChange={(e) => setFilterType(e.target.value)}
-          className="bg-slate-800 text-white px-3 py-2 rounded-lg border border-slate-700 text-sm"
-        >
-          <option value="all">All Types</option>
-          <option value="threat">Threats</option>
-          <option value="opportunity">Opportunities</option>
-          <option value="trend">Trends</option>
-          <option value="recommendation">Recommendations</option>
-        </select>
+        <div className="flex items-center gap-3">
+          <select
+            value={filterType}
+            onChange={(e) => setFilterType(e.target.value)}
+            className="bg-slate-800 text-white px-3 py-2 rounded-lg border border-slate-700 text-sm"
+          >
+            <option value="all">All Types</option>
+            <option value="threat">Threats</option>
+            <option value="opportunity">Opportunities</option>
+            <option value="trend">Trends</option>
+            <option value="recommendation">Recommendations</option>
+          </select>
+          <button
+            onClick={() => setShowArchived(!showArchived)}
+            className="px-4 py-2 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-400 rounded-lg text-sm font-medium transition flex items-center gap-2"
+          >
+            <Archive className="w-4 h-4" />
+            {showArchived ? 'Hide' : 'Show'} Archived {archivedCount > 0 && `(${archivedCount})`}
+          </button>
+        </div>
       </div>
 
       {/* Detail Panel */}
@@ -162,10 +223,11 @@ export default function InsightsView({ insights, loading }: Props) {
               <div className="absolute top-4 right-4">
                 <ActionMenu
                   itemId={insight.id}
-                  onArchive={archiveInsight}
-                  onDelete={deleteInsight}
+                  onArchive={showArchived ? handleUnarchive : handleArchive}
+                  onDelete={handleDelete}
                   deleteConfirmTitle="Delete Insight?"
                   deleteConfirmMessage="This AI-generated insight will be permanently removed."
+                  isArchived={showArchived}
                 />
               </div>
             </div>

@@ -44,5 +44,9 @@ export function useInsights(scanId?: string, limit?: number) {
     }
   }
 
-  return { insights, loading, error, refetch: fetchInsights }
+  function archiveInsightOptimistic(insightId: string) {
+    setInsights(prev => prev.filter(i => i.id !== insightId))
+  }
+
+  return { insights, loading, error, refetch: fetchInsights, archiveInsightOptimistic }
 }

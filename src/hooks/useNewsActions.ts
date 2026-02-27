@@ -90,6 +90,26 @@ export function useNewsActions() {
     }
   }
 
+  const unarchiveAlert = async (alertId: string): Promise<void> => {
+    setLoading(true)
+    try {
+      const token = await getToken({ template: 'supabase' })
+      const supabase = createSupabaseClient(token || undefined)
+      
+      const { error } = await supabase
+        .from('alerts')
+        .update({ archived: false })
+        .eq('id', alertId)
+      
+      if (error) throw error
+    } catch (error) {
+      console.error('Error unarchiving alert:', error)
+      throw error
+    } finally {
+      setLoading(false)
+    }
+  }
+
   const deleteAlert = async (alertId: string): Promise<void> => {
     setLoading(true)
     try {
@@ -124,6 +144,26 @@ export function useNewsActions() {
       if (error) throw error
     } catch (error) {
       console.error('Error archiving insight:', error)
+      throw error
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const unarchiveInsight = async (insightId: string): Promise<void> => {
+    setLoading(true)
+    try {
+      const token = await getToken({ template: 'supabase' })
+      const supabase = createSupabaseClient(token || undefined)
+      
+      const { error } = await supabase
+        .from('insights')
+        .update({ archived: false })
+        .eq('id', insightId)
+      
+      if (error) throw error
+    } catch (error) {
+      console.error('Error unarchiving insight:', error)
       throw error
     } finally {
       setLoading(false)
@@ -196,8 +236,10 @@ export function useNewsActions() {
     unarchiveNews,
     deleteNews,
     archiveAlert,
+    unarchiveAlert,
     deleteAlert,
     archiveInsight,
+    unarchiveInsight,
     deleteInsight,
     archiveCompetitor,
     deleteCompetitor

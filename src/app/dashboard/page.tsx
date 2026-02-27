@@ -116,7 +116,7 @@ export default function Dashboard() {
   
   // Fetch real data from Supabase filtered by selected scan
   const { competitors, loading: loadingCompetitors } = useCompetitors(selectedScanId)
-  const { insights, loading: loadingInsights } = useInsights(selectedScanId)
+  const { insights, loading: loadingInsights, refetch: refetchInsights, archiveInsightOptimistic } = useInsights(selectedScanId)
   
   // Use context for alerts and news
   const { alerts, loading: loadingAlerts, markAsRead, unreadCount: alertsUnreadCount, setScanFilter: setAlertsScanFilter } = useAlertsContext()
@@ -834,7 +834,12 @@ export default function Dashboard() {
         )}
 
         {activeTab === 'insights' && (
-          <InsightsView insights={insights} loading={loadingInsights} />
+          <InsightsView 
+            insights={insights} 
+            loading={loadingInsights}
+            archiveInsightOptimistic={archiveInsightOptimistic}
+            refetch={refetchInsights}
+          />
         )}
 
         {activeTab === 'news' && (
