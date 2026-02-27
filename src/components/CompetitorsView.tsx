@@ -9,13 +9,23 @@ import ActionMenu from './ActionMenu'
 interface Props {
   competitors: Competitor[]
   loading: boolean
+  refetch: () => void
 }
 
-export default function CompetitorsView({ competitors, loading }: Props) {
-  const { archiveCompetitor, deleteCompetitor } = useNewsActions()
+export default function CompetitorsView({ competitors, loading, refetch }: Props) {
+  const { deleteCompetitor } = useNewsActions()
   const [selectedCompetitor, setSelectedCompetitor] = useState<Competitor | null>(null)
   const [sortBy, setSortBy] = useState<'threat_score' | 'name' | 'activity_level'>('threat_score')
   const [filterActivity, setFilterActivity] = useState<string>('all')
+
+  const handleDelete = async (competitorId: string) => {
+    try {
+      await deleteCompetitor(competitorId)
+      await refetch()
+    } catch (error) {
+      alert('Failed to remove competitor')
+    }
+  }
 
   const sorted = [...competitors].sort((a, b) => {
     if (sortBy === 'threat_score') return (b.threat_score || 0) - (a.threat_score || 0)
@@ -122,7 +132,7 @@ export default function CompetitorsView({ competitors, loading }: Props) {
               <div className="ml-3">
                 <ActionMenu
                   itemId={comp.id}
-                  onDelete={deleteCompetitor}
+                  onDelete={handleDelete}
                   deleteConfirmTitle="Stop Following Competitor?"
                   deleteConfirmMessage="This competitor will be removed from your watchlist. You can add them back later."
                   deleteButtonLabel="Do Not Follow"

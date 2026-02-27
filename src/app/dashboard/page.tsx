@@ -115,7 +115,7 @@ export default function Dashboard() {
   }, [scans, loadingScans, selectedScanId])
   
   // Fetch real data from Supabase filtered by selected scan
-  const { competitors, loading: loadingCompetitors } = useCompetitors(selectedScanId)
+  const { competitors, loading: loadingCompetitors, refetch: refetchCompetitors } = useCompetitors(selectedScanId)
   const { insights, loading: loadingInsights, refetch: refetchInsights, archiveInsightOptimistic } = useInsights(selectedScanId)
   
   // Use context for alerts and news
@@ -826,7 +826,7 @@ export default function Dashboard() {
         )}
 
         {activeTab === 'competitors' && (
-          <CompetitorsView competitors={competitors} loading={loadingCompetitors} />
+          <CompetitorsView competitors={competitors} loading={loadingCompetitors} refetch={refetchCompetitors} />
         )}
 
         {activeTab === 'alerts' && (
