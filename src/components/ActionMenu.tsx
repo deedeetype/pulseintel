@@ -35,6 +35,7 @@ export default function ActionMenu({
   const [actionLoading, setActionLoading] = useState(false)
 
   const handleArchive = async () => {
+    if (!onArchive) return
     setActionLoading(true)
     try {
       await onArchive(itemId)
