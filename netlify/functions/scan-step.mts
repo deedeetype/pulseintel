@@ -141,8 +141,14 @@ JSON: {"company_name": "X", "industry": "Y", "description": "1-2 sentence descri
 
 // Step 0: Create scan record OR reuse existing profile (incremental model)
 async function stepInit(industry: string, companyUrl?: string, companyName?: string, userId?: string) {
+  // Require authentication - no fallback to demo_user
+  if (!userId) {
+    console.error('[stepInit] No userId provided - authentication required')
+    throw new Error('Authentication required. Please log in and try again.')
+  }
+  
   // Use Clerk ID directly (TEXT, no conversion needed)
-  const actualUserId = userId || DEMO_USER_ID
+  const actualUserId = userId
   
   // Check for existing completed profile with same industry + company_url
   if (companyUrl) {
@@ -303,7 +309,10 @@ async function stepAnalyzeCompetitors(
   companies: any[],
   userId?: string
 ) {
-  const actualUserId = userId || DEMO_USER_ID
+  if (!userId) {
+    throw new Error('Authentication required')
+  }
+  const actualUserId = userId
   
   console.log(`[ANALYZE-COMPETITORS] Starting for ${companies.length} companies`)
   
@@ -333,7 +342,10 @@ async function stepAnalyzeInsights(
   competitorNames: string[],
   userId?: string
 ) {
-  const actualUserId = userId || DEMO_USER_ID
+  if (!userId) {
+    throw new Error('Authentication required')
+  }
+  const actualUserId = userId
   
   console.log(`[ANALYZE-INSIGHTS] Starting for ${industry}`)
   
@@ -361,7 +373,10 @@ async function stepAnalyzeAlerts(
   competitorNames: string[],
   userId?: string
 ) {
-  const actualUserId = userId || DEMO_USER_ID
+  if (!userId) {
+    throw new Error('Authentication required')
+  }
+  const actualUserId = userId
   
   console.log(`[ANALYZE-ALERTS] Starting for ${industry}`)
   
@@ -392,7 +407,10 @@ async function stepFinalize(
   isRefresh: boolean,
   userId?: string
 ) {
-  const actualUserId = userId || DEMO_USER_ID
+  if (!userId) {
+    throw new Error('Authentication required')
+  }
+  const actualUserId = userId
   
   console.log(`[FINALIZE] Starting for scan ${scanId}`)
   console.log(`[FINALIZE] Data: ${competitors.length} competitors, ${insights.length} insights, ${alerts.length} alerts, ${news.length} news`)
@@ -622,8 +640,11 @@ Use actual competitor names in market_leaders_share if they are major players.` 
 // ========== OLD MONOLITHIC STEP (DEPRECATED) ==========
 // Step 3: Analyze with Claude + write everything to Supabase (supports incremental scans)
 async function stepAnalyzeAndWrite(industry: string, scanId: string, companies: any[], news: any[], isRefresh?: boolean, userId?: string) {
-  // Use Clerk ID directly (TEXT, no conversion needed)
-  const actualUserId = userId || DEMO_USER_ID
+  // Kept for backward compatibility but require auth
+  if (!userId) {
+    throw new Error('Authentication required')
+  }
+  const actualUserId = userId
   // If refresh, fetch existing competitors to use in insights/alerts generation
   let competitorNames: string[] = []
   if (isRefresh) {
