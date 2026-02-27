@@ -12,11 +12,11 @@ export default function OnboardingPage() {
   const [formData, setFormData] = useState({
     companyName: '',
     companyUrl: '',
-    industry: INDUSTRIES[0], // Default to first alphabetically
+    industry: INDUSTRIES[0] as string, // Default to first alphabetically
     role: 'Founder/CEO'
   })
 
-  const industries = INDUSTRIES
+  const industries = INDUSTRIES as readonly string[]
 
   const roles = [
     'Founder/CEO', 'Product Manager', 'Business Development', 'Marketing',
