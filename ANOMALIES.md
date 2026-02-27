@@ -56,7 +56,21 @@
   - Frontend passe toujours user?.id (Clerk auth)
 - **Tested:** ✅ Safe - n'affecte pas users logged in (99% des cas)
 
-### 5. [TO BE DOCUMENTED]
+### 5. Duplicate scans allowed for same industry
+- **Description:** Utilisateurs pouvaient créer plusieurs scans pour la même industrie, créant des duplicates et confusion
+- **Severity:** Medium (mauvaise UX, données dupliquées)
+- **Impact:** Dashboard - profiles dupliqués, pas clair lequel utiliser
+- **Root Cause:** Aucune validation côté UI pour empêcher duplicates par industrie
+- **Status:** ✅ FIXED (commit a07ebf3)
+- **Fix:**
+  - Détection automatique de profil existant lors de sélection industrie
+  - Warning amber box: "⚠️ You already have a [Industry] profile"
+  - Bouton "Start Scan" disabled si duplicate détecté
+  - Message suggère d'utiliser "Refresh Profile" à la place
+  - Check basé sur industry name seulement (pas company_url)
+- **Tested:** En attente de test (essayer de créer duplicate)
+
+### 6. [TO BE DOCUMENTED]
 - **Description:** (waiting for user to specify)
 - **Severity:** Minor (non-blocking)
 - **Impact:** UI/UX
