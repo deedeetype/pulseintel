@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { useUser } from '@clerk/nextjs'
 import { Activity, Clock, TrendingUp, AlertCircle, CheckCircle, XCircle, RefreshCw, Calendar } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
+import { getIndustryDisplayName } from '@/constants/industries'
 
 interface RefreshLog {
   id: string
@@ -172,7 +173,7 @@ export default function ActivityView() {
                 <div className="flex items-center gap-2 flex-wrap">
                   <h3 className="text-white font-medium">
                     {log.scan?.company_name ? `${log.scan.company_name} — ` : ''}
-                    {log.scan?.industry || 'Unknown Industry'}
+                    {getIndustryDisplayName(log.scan?.industry)}
                   </h3>
                   {getTriggerBadge(log.triggered_by)}
                   {log.status === 'success' && (

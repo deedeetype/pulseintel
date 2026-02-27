@@ -17,6 +17,7 @@ import ProfilesView from '@/components/ProfilesView'
 import IndustryAnalyticsView from '@/components/IndustryAnalyticsView'
 import SettingsView from '@/components/SettingsView'
 import { useSettings } from '@/contexts/SettingsContext'
+import { INDUSTRIES } from '@/constants/industries'
 import { 
   LayoutDashboard, 
   Target, 
@@ -967,29 +968,9 @@ export default function Dashboard() {
                 className="w-full bg-slate-800 text-white px-4 py-3 rounded-lg border border-slate-700 focus:border-indigo-500 focus:outline-none disabled:opacity-50"
               >
                 {companyUrl && <option value="auto">🔎 Auto-detect from URL</option>}
-                <option value="Financial Services">Financial Services</option>
-                <option value="Healthcare">Healthcare</option>
-                <option value="Technology">Technology</option>
-                <option value="E-commerce">E-commerce</option>
-                <option value="SaaS">SaaS</option>
-                <option value="Fintech">Fintech</option>
-                <option value="Cybersecurity">Cybersecurity</option>
-                <option value="AI/ML">AI/ML</option>
-                <option value="Gaming">Gaming</option>
-                <option value="EdTech">EdTech</option>
-                <option value="Real Estate">Real Estate</option>
-                <option value="Logistics">Logistics</option>
-                <option value="Energy">Energy</option>
-                <option value="Retail">Retail</option>
-                <option value="Legal Tech">Legal Tech</option>
-                <option value="Insurance">Insurance</option>
-                <option value="Consulting">Consulting</option>
-                <option value="Manufacturing">Manufacturing</option>
-                <option value="Telecommunications">Telecommunications</option>
-                <option value="Media & Entertainment">Media & Entertainment</option>
-                <option value="Food & Beverage">Food & Beverage</option>
-                <option value="Automotive">Automotive</option>
-                <option value="Biotech">Biotech</option>
+                {INDUSTRIES.map(industry => (
+                  <option key={industry} value={industry}>{industry}</option>
+                ))}
               </select>
             </div>
 

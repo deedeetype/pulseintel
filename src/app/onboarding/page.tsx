@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useUser } from '@clerk/nextjs'
+import { INDUSTRIES } from '@/constants/industries'
 
 export default function OnboardingPage() {
   const router = useRouter()
@@ -11,14 +12,11 @@ export default function OnboardingPage() {
   const [formData, setFormData] = useState({
     companyName: '',
     companyUrl: '',
-    industry: 'Technology',
+    industry: INDUSTRIES[0], // Default to first alphabetically
     role: 'Founder/CEO'
   })
 
-  const industries = [
-    'Technology', 'Healthcare', 'Financial Services', 'Retail', 'Manufacturing',
-    'Automotive', 'Real Estate', 'Energy', 'Telecommunications', 'Food & Beverage'
-  ]
+  const industries = INDUSTRIES
 
   const roles = [
     'Founder/CEO', 'Product Manager', 'Business Development', 'Marketing',

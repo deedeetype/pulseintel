@@ -5,14 +5,10 @@ import { useSettings } from '@/contexts/SettingsContext'
 import { useUser } from '@clerk/nextjs'
 import { Settings as SettingsIcon, User, Building, Globe, Bell, Zap, Save, Plus, X, Moon, Sun, RefreshCw } from 'lucide-react'
 import AutomatedScansSettings from './AutomatedScansSettings'
+import { INDUSTRIES } from '@/constants/industries'
 
 const REGIONS = ['Global', 'North America', 'Europe', 'Asia Pacific', 'Latin America', 'Middle East & Africa']
-const INDUSTRIES = [
-  '', 'Financial Services', 'Healthcare', 'Technology', 'E-commerce', 'SaaS', 'Fintech',
-  'Cybersecurity', 'AI/ML', 'Gaming', 'EdTech', 'Real Estate', 'Logistics', 'Energy',
-  'Retail', 'Legal Tech', 'Insurance', 'Consulting', 'Manufacturing', 'Telecommunications',
-  'Media & Entertainment', 'Food & Beverage', 'Automotive', 'Biotech', 'Pulp & Paper'
-]
+const INDUSTRIES_WITH_EMPTY = ['', ...INDUSTRIES]
 
 export default function SettingsView() {
   const { user } = useUser()
@@ -245,7 +241,7 @@ export default function SettingsView() {
               className={inputClass}
             >
               <option value="">Auto-detect / None</option>
-              {INDUSTRIES.filter(Boolean).map(ind => (
+              {INDUSTRIES_WITH_EMPTY.filter(Boolean).map(ind => (
                 <option key={ind} value={ind}>{ind}</option>
               ))}
             </select>
