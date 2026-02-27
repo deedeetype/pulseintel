@@ -21,6 +21,7 @@ export function useCompetitors(scanId?: string) {
       let query = supabase
         .from('competitors')
         .select('*')
+        .eq('archived', false) // Only show non-archived competitors
         .order('threat_score', { ascending: false })
       
       if (scanId) {

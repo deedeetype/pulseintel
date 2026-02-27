@@ -2,7 +2,9 @@
 
 import { useState } from 'react'
 import { type Insight } from '@/lib/supabase'
+import { useNewsActions } from '@/hooks/useNewsActions'
 import { Lightbulb, AlertTriangle, Sparkles, TrendingUp, Target, X } from 'lucide-react'
+import ActionMenu from './ActionMenu'
 
 interface Props {
   insights: Insight[]
@@ -10,6 +12,7 @@ interface Props {
 }
 
 export default function InsightsView({ insights, loading }: Props) {
+  const { archiveInsight, deleteInsight } = useNewsActions()
   const [selectedInsight, setSelectedInsight] = useState<Insight | null>(null)
   const [filterType, setFilterType] = useState<string>('all')
 
@@ -132,8 +135,7 @@ export default function InsightsView({ insights, loading }: Props) {
         {filtered.map((insight) => (
           <div
             key={insight.id}
-            onClick={() => setSelectedInsight(insight)}
-            className={`p-5 rounded-xl border transition cursor-pointer ${
+            className={`p-5 rounded-xl border transition relative ${
               selectedInsight?.id === insight.id
                 ? 'bg-slate-800 border-indigo-500/50'
                 : 'bg-slate-900 border-slate-800 hover:border-slate-700'
@@ -143,7 +145,9 @@ export default function InsightsView({ insights, loading }: Props) {
               <div className="w-10 h-10 rounded-lg bg-slate-800 flex items-center justify-center">
                 <TypeIcon type={insight.type} />
               </div>
-              <div className="flex-1">
+              <div 
+                onClick={() => setSelectedInsight(insight)}
+                className="flex-1 cursor-pointer">
                 <h3 className="text-white font-semibold mb-2">{insight.title}</h3>
                 <p className="text-slate-400 text-sm line-clamp-3">{insight.description}</p>
                 <div className="flex items-center gap-3 mt-3">
@@ -154,6 +158,15 @@ export default function InsightsView({ insights, loading }: Props) {
                     <span className="text-xs text-slate-500">{Math.round(insight.confidence * 100)}% confidence</span>
                   )}
                 </div>
+              </div>
+              <div className="absolute top-4 right-4">
+                <ActionMenu
+                  itemId={insight.id}
+                  onArchive={archiveInsight}
+                  onDelete={deleteInsight}
+                  deleteConfirmTitle="Delete Insight?"
+                  deleteConfirmMessage="This AI-generated insight will be permanently removed."
+                />
               </div>
             </div>
           </div>

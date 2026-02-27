@@ -21,6 +21,7 @@ export function useInsights(scanId?: string, limit?: number) {
       let query = supabase
         .from('insights')
         .select('*')
+        .eq('archived', false) // Only show non-archived insights
         .order('created_at', { ascending: false })
 
       if (scanId) {

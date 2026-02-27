@@ -51,6 +51,7 @@ export function NewsFeedProvider({ children }: { children: ReactNode }) {
       let query = supabase
         .from('news_feed')
         .select('*')
+        .eq('archived', false) // Only show non-archived news
         .order('published_at', { ascending: false, nullsFirst: false })
         .order('created_at', { ascending: false })
       

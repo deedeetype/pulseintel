@@ -4,16 +4,15 @@ import { useState } from 'react'
 import { useAlertsContext } from '@/contexts/AlertsContext'
 import { useNewsActions } from '@/hooks/useNewsActions'
 import { type Alert } from '@/lib/supabase'
-import { DollarSign, Rocket, Users, Newspaper, TrendingUp, FileText, Bell, Archive, Trash2, MoreVertical } from 'lucide-react'
+import { DollarSign, Rocket, Users, Newspaper, TrendingUp, FileText, Bell } from 'lucide-react'
+import ActionMenu from './ActionMenu'
 
 export default function AlertsView() {
   const { alerts, loading, markAsRead } = useAlertsContext()
-  const { archiveAlert, deleteAlert, loading: actionLoading } = useNewsActions()
+  const { archiveAlert, deleteAlert } = useNewsActions()
   const [expandedId, setExpandedId] = useState<string | null>(null)
   const [filterPriority, setFilterPriority] = useState<string>('all')
   const [filterCategory, setFilterCategory] = useState<string>('all')
-  const [showMenu, setShowMenu] = useState<string | null>(null)
-  const [confirmDelete, setConfirmDelete] = useState<string | null>(null)
 
   const filtered = alerts.filter(a => {
     if (filterPriority !== 'all' && a.priority !== filterPriority) return false
@@ -143,8 +142,17 @@ export default function AlertsView() {
                     <span className="text-xs text-slate-500">{timeAgo(alert.created_at)}</span>
                   </div>
                 </div>
-                <div className="text-slate-500 text-sm flex-shrink-0">
-                  {isExpanded ? '▲' : '▼'}
+                <div className="flex items-center gap-2">
+                  <ActionMenu
+                    itemId={alert.id}
+                    onArchive={archiveAlert}
+                    onDelete={deleteAlert}
+                    deleteConfirmTitle="Delete Alert?"
+                    deleteConfirmMessage="This alert will be permanently removed from your dashboard."
+                  />
+                  <div className="text-slate-500 text-sm flex-shrink-0">
+                    {isExpanded ? '▲' : '▼'}
+                  </div>
                 </div>
               </div>
 

@@ -36,6 +36,7 @@ export function AlertsProvider({ children }: { children: ReactNode }) {
       let query = supabase
         .from('alerts')
         .select('*')
+        .eq('archived', false) // Only show non-archived alerts
         .order('created_at', { ascending: false })
 
       if (scanFilter) {

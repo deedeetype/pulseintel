@@ -2,7 +2,9 @@
 
 import { useState } from 'react'
 import { type Competitor } from '@/lib/supabase'
+import { useNewsActions } from '@/hooks/useNewsActions'
 import { Target, AlertTriangle, TrendingUp, ExternalLink, Building } from 'lucide-react'
+import ActionMenu from './ActionMenu'
 
 interface Props {
   competitors: Competitor[]
@@ -10,6 +12,7 @@ interface Props {
 }
 
 export default function CompetitorsView({ competitors, loading }: Props) {
+  const { archiveCompetitor, deleteCompetitor } = useNewsActions()
   const [selectedCompetitor, setSelectedCompetitor] = useState<Competitor | null>(null)
   const [sortBy, setSortBy] = useState<'threat_score' | 'name' | 'activity_level'>('threat_score')
   const [filterActivity, setFilterActivity] = useState<string>('all')
@@ -85,14 +88,15 @@ export default function CompetitorsView({ competitors, loading }: Props) {
         {filtered.map((comp) => (
           <div key={comp.id}>
             <div
-              onClick={() => setSelectedCompetitor(selectedCompetitor?.id === comp.id ? null : comp)}
-              className={`flex items-center justify-between p-4 rounded-xl border transition cursor-pointer ${
+              className={`flex items-center justify-between p-4 rounded-xl border transition relative ${
                 selectedCompetitor?.id === comp.id
                   ? 'bg-slate-800 border-indigo-500/50 rounded-b-none'
                   : 'bg-slate-900 border-slate-800 hover:border-slate-700'
               }`}
             >
-              <div className="flex items-center gap-4">
+              <div 
+                onClick={() => setSelectedCompetitor(selectedCompetitor?.id === comp.id ? null : comp)}
+                className="flex items-center gap-4 flex-1 cursor-pointer">
                 <div className="w-10 h-10 bg-gradient-to-br from-indigo-500 to-purple-500 rounded-lg flex items-center justify-center text-white">
                   <Building className="w-5 h-5" />
                 </div>
@@ -114,6 +118,15 @@ export default function CompetitorsView({ competitors, loading }: Props) {
                   <div className="text-xs text-slate-500">Threat</div>
                 </div>
                 <span className={`text-slate-400 transition-transform ${selectedCompetitor?.id === comp.id ? 'rotate-180' : ''}`}>▾</span>
+              </div>
+              <div className="ml-3">
+                <ActionMenu
+                  itemId={comp.id}
+                  onArchive={archiveCompetitor}
+                  onDelete={deleteCompetitor}
+                  deleteConfirmTitle="Remove Competitor?"
+                  deleteConfirmMessage="This competitor will be permanently removed from your watchlist."
+                />
               </div>
             </div>
 
