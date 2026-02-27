@@ -30,7 +30,33 @@
   - Évite besoin de clerkMiddleware() setup
 - **Tested:** 2026-02-26 17:33 - Profiles s'affichent correctement ✅
 
-### 3. [TO BE DOCUMENTED]
+### 3. Industry Analytics - Incomplete data (0% values)
+- **Description:** Regional Distribution et Market Leaders affichaient 0% partout, charts vides
+- **Severity:** Medium (mauvaise UX)
+- **Impact:** Dashboard Industry Analytics - données incomplètes
+- **Root Cause:** Perplexity AI retournait données partielles, pas de fallbacks
+- **Status:** ✅ FIXED (commit 7034333)
+- **Fix:** 
+  - Prompt amélioré avec CRITICAL REQUIREMENTS
+  - Validation + fallbacks pour tous les champs
+  - Utilise vrais competitors dans market_leaders
+  - Fallbacks: Enterprise/SMB/Consumer, NA 40%/APAC 35%/EU 25%
+- **Tested:** En attente de test (prochain nouveau scan)
+
+### 4. Scan crash avec Foreign Key violation (demo_user)
+- **Description:** Nouveau scan Telecommunications crash avec erreur 409 FK constraint, profil vide créé
+- **Severity:** High (crash)
+- **Impact:** Scans - certains users ne peuvent pas créer de scans
+- **Root Cause:** Backend fallback à 'demo_user' si userId manquant, mais 'demo_user' n'existe pas dans table users → foreign key violation
+- **Status:** ✅ FIXED (commit cfa8375)
+- **Fix:** 
+  - Supprimé TOUS les fallbacks à DEMO_USER_ID
+  - Require userId dans toutes les fonctions scan
+  - Throw error clair: "Authentication required"
+  - Frontend passe toujours user?.id (Clerk auth)
+- **Tested:** ✅ Safe - n'affecte pas users logged in (99% des cas)
+
+### 5. [TO BE DOCUMENTED]
 - **Description:** (waiting for user to specify)
 - **Severity:** Minor (non-blocking)
 - **Impact:** UI/UX
