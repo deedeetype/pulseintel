@@ -30,6 +30,26 @@ export function useNewsActions() {
     }
   }
 
+  const unarchiveNews = async (newsId: string): Promise<void> => {
+    setLoading(true)
+    try {
+      const token = await getToken({ template: 'supabase' })
+      const supabase = createSupabaseClient(token || undefined)
+      
+      const { error } = await supabase
+        .from('news_feed')
+        .update({ archived: false })
+        .eq('id', newsId)
+      
+      if (error) throw error
+    } catch (error) {
+      console.error('Error unarchiving news:', error)
+      throw error
+    } finally {
+      setLoading(false)
+    }
+  }
+
   const deleteNews = async (newsId: string): Promise<void> => {
     setLoading(true)
     try {
@@ -173,6 +193,7 @@ export function useNewsActions() {
   return {
     loading,
     archiveNews,
+    unarchiveNews,
     deleteNews,
     archiveAlert,
     deleteAlert,

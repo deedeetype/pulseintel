@@ -8,13 +8,18 @@ import { Newspaper, ExternalLink, TrendingUp, TrendingDown, Minus, Calendar, Arc
 
 export default function NewsFeedView() {
   const { news, loading, markAsRead, archiveNewsOptimistic, refetch } = useNewsFeedContext()
-  const { archivedNews, loading: archivedLoading, fetchArchived } = useArchivedNews()
-  const { archiveNews, deleteNews, loading: actionLoading } = useNewsActions()
+  const { archivedNews, archivedCount, loading: archivedLoading, fetchArchived, fetchArchivedCount } = useArchivedNews()
+  const { archiveNews, unarchiveNews, deleteNews, loading: actionLoading } = useNewsActions()
   const [selectedNews, setSelectedNews] = useState<any | null>(null)
   const [filterMode, setFilterMode] = useState<'all' | 'read' | 'unread'>('all')
   const [showMenu, setShowMenu] = useState<string | null>(null)
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null)
   const [showArchived, setShowArchived] = useState(false)
+  
+  useEffect(() => {
+    // Fetch archived count on mount
+    fetchArchivedCount()
+  }, [])
   
   useEffect(() => {
     if (showArchived) {
@@ -68,10 +73,25 @@ export default function NewsFeedView() {
       
       // Then update backend
       await archiveNews(newsId)
+      
+      // Update archived count
+      await fetchArchivedCount()
     } catch (error) {
       // If backend fails, refetch to restore accurate state
       await refetch()
       alert('Failed to archive news')
+    }
+  }
+
+  const handleUnarchive = async (newsId: string) => {
+    try {
+      await unarchiveNews(newsId)
+      // Refresh both lists
+      await fetchArchived()
+      await refetch()
+      await fetchArchivedCount()
+    } catch (error) {
+      alert('Failed to unarchive news')
     }
   }
 
@@ -138,7 +158,7 @@ export default function NewsFeedView() {
           className="ml-auto px-4 py-2 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-400 rounded-lg text-sm font-medium transition flex items-center gap-2"
         >
           <Archive className="w-4 h-4" />
-          {showArchived ? 'Hide' : 'Show'} Archived
+          {showArchived ? 'Hide' : 'Show'} Archived {archivedCount > 0 && `(${archivedCount})`}
         </button>
       </div>
 
@@ -194,30 +214,61 @@ export default function NewsFeedView() {
                 
                 {showMenu === item.id && (
                   <div className="absolute right-0 mt-2 w-48 bg-slate-800 border border-slate-700 rounded-lg shadow-xl z-10">
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        handleArchive(item.id)
-                        setShowMenu(null)
-                      }}
-                      className="w-full px-4 py-2 text-left text-sm text-slate-300 hover:bg-slate-700 flex items-center gap-2 rounded-t-lg"
-                      disabled={actionLoading}
-                    >
-                      <Archive className="w-4 h-4" />
-                      Archive
-                    </button>
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        setConfirmDelete(item.id)
-                        setShowMenu(null)
-                      }}
-                      className="w-full px-4 py-2 text-left text-sm text-red-400 hover:bg-slate-700 flex items-center gap-2 rounded-b-lg"
-                      disabled={actionLoading}
-                    >
-                      <Trash2 className="w-4 h-4" />
-                      Delete
-                    </button>
+                    {!showArchived ? (
+                      <>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            handleArchive(item.id)
+                            setShowMenu(null)
+                          }}
+                          className="w-full px-4 py-2 text-left text-sm text-slate-300 hover:bg-slate-700 flex items-center gap-2 rounded-t-lg"
+                          disabled={actionLoading}
+                        >
+                          <Archive className="w-4 h-4" />
+                          Archive
+                        </button>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            setConfirmDelete(item.id)
+                            setShowMenu(null)
+                          }}
+                          className="w-full px-4 py-2 text-left text-sm text-red-400 hover:bg-slate-700 flex items-center gap-2 rounded-b-lg"
+                          disabled={actionLoading}
+                        >
+                          <Trash2 className="w-4 h-4" />
+                          Delete
+                        </button>
+                      </>
+                    ) : (
+                      <>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            handleUnarchive(item.id)
+                            setShowMenu(null)
+                          }}
+                          className="w-full px-4 py-2 text-left text-sm text-slate-300 hover:bg-slate-700 flex items-center gap-2 rounded-t-lg"
+                          disabled={actionLoading}
+                        >
+                          <Archive className="w-4 h-4" />
+                          Unarchive
+                        </button>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            setConfirmDelete(item.id)
+                            setShowMenu(null)
+                          }}
+                          className="w-full px-4 py-2 text-left text-sm text-red-400 hover:bg-slate-700 flex items-center gap-2 rounded-b-lg"
+                          disabled={actionLoading}
+                        >
+                          <Trash2 className="w-4 h-4" />
+                          Delete
+                        </button>
+                      </>
+                    )}
                   </div>
                 )}
               </div>

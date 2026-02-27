@@ -10,6 +10,7 @@ import { type NewsItem } from '@/contexts/NewsFeedContext'
 export function useArchivedNews() {
   const { getToken } = useAuth()
   const [archivedNews, setArchivedNews] = useState<NewsItem[]>([])
+  const [archivedCount, setArchivedCount] = useState(0)
   const [loading, setLoading] = useState(false)
 
   const fetchArchived = async () => {
@@ -35,6 +36,7 @@ export function useArchivedNews() {
       }))
       
       setArchivedNews(newsWithRead)
+      setArchivedCount(newsWithRead.length)
     } catch (error) {
       console.error('Error fetching archived news:', error)
     } finally {
@@ -42,5 +44,22 @@ export function useArchivedNews() {
     }
   }
 
-  return { archivedNews, loading, fetchArchived }
+  const fetchArchivedCount = async () => {
+    try {
+      const token = await getToken({ template: 'supabase' })
+      const supabase = createSupabaseClient(token || undefined)
+      
+      const { count, error } = await supabase
+        .from('news_feed')
+        .select('*', { count: 'exact', head: true })
+        .eq('archived', true)
+      
+      if (error) throw error
+      setArchivedCount(count || 0)
+    } catch (error) {
+      console.error('Error fetching archived count:', error)
+    }
+  }
+
+  return { archivedNews, archivedCount, loading, fetchArchived, fetchArchivedCount }
 }
