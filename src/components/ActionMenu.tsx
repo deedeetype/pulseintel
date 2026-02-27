@@ -9,12 +9,14 @@ import { Archive, Trash2, MoreVertical } from 'lucide-react'
 
 interface ActionMenuProps {
   itemId: string
-  onArchive: (id: string) => Promise<void>
+  onArchive?: (id: string) => Promise<void>
   onDelete: (id: string) => Promise<void>
   loading?: boolean
   deleteConfirmTitle?: string
   deleteConfirmMessage?: string
   isArchived?: boolean
+  deleteButtonLabel?: string
+  hideArchive?: boolean
 }
 
 export default function ActionMenu({
@@ -24,7 +26,9 @@ export default function ActionMenu({
   loading = false,
   deleteConfirmTitle = 'Delete Item?',
   deleteConfirmMessage = 'This action cannot be undone. The item will be permanently removed.',
-  isArchived = false
+  isArchived = false,
+  deleteButtonLabel = 'Delete',
+  hideArchive = false
 }: ActionMenuProps) {
   const [showMenu, setShowMenu] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(false)
@@ -35,17 +39,6 @@ export default function ActionMenu({
     try {
       await onArchive(itemId)
       setShowMenu(false)
-      // Soft refresh without full reload - just hide the element
-      const element = document.getElementById(`item-${itemId}`)
-      if (element) {
-        element.style.opacity = '0'
-        element.style.transition = 'opacity 0.3s'
-        setTimeout(() => {
-          window.location.reload()
-        }, 300)
-      } else {
-        window.location.reload()
-      }
     } catch (error) {
       alert('Failed to archive item')
     } finally {
@@ -58,17 +51,6 @@ export default function ActionMenu({
     try {
       await onDelete(itemId)
       setConfirmDelete(false)
-      // Soft refresh without full reload
-      const element = document.getElementById(`item-${itemId}`)
-      if (element) {
-        element.style.opacity = '0'
-        element.style.transition = 'opacity 0.3s'
-        setTimeout(() => {
-          window.location.reload()
-        }, 300)
-      } else {
-        window.location.reload()
-      }
     } catch (error) {
       alert('Failed to delete item')
     } finally {
@@ -97,28 +79,30 @@ export default function ActionMenu({
               onClick={() => setShowMenu(false)}
             />
             <div className="absolute right-0 mt-2 w-48 bg-slate-800 border border-slate-700 rounded-lg shadow-xl z-20">
-              <button
-                onClick={(e) => {
-                  e.stopPropagation()
-                  handleArchive()
-                }}
-                className="w-full px-4 py-2 text-left text-sm text-slate-300 hover:bg-slate-700 flex items-center gap-2 rounded-t-lg"
-                disabled={actionLoading}
-              >
-                <Archive className="w-4 h-4" />
-                {isArchived ? 'Unarchive' : 'Archive'}
-              </button>
+              {!hideArchive && onArchive && (
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    handleArchive()
+                  }}
+                  className="w-full px-4 py-2 text-left text-sm text-slate-300 hover:bg-slate-700 flex items-center gap-2 rounded-t-lg"
+                  disabled={actionLoading}
+                >
+                  <Archive className="w-4 h-4" />
+                  {isArchived ? 'Unarchive' : 'Archive'}
+                </button>
+              )}
               <button
                 onClick={(e) => {
                   e.stopPropagation()
                   setConfirmDelete(true)
                   setShowMenu(false)
                 }}
-                className="w-full px-4 py-2 text-left text-sm text-red-400 hover:bg-slate-700 flex items-center gap-2 rounded-b-lg"
+                className={`w-full px-4 py-2 text-left text-sm text-red-400 hover:bg-slate-700 flex items-center gap-2 ${hideArchive ? 'rounded-lg' : 'rounded-b-lg'}`}
                 disabled={actionLoading}
               >
                 <Trash2 className="w-4 h-4" />
-                Delete
+                {deleteButtonLabel}
               </button>
             </div>
           </>

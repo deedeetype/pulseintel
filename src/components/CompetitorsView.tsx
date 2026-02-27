@@ -122,10 +122,11 @@ export default function CompetitorsView({ competitors, loading }: Props) {
               <div className="ml-3">
                 <ActionMenu
                   itemId={comp.id}
-                  onArchive={archiveCompetitor}
                   onDelete={deleteCompetitor}
-                  deleteConfirmTitle="Remove Competitor?"
-                  deleteConfirmMessage="This competitor will be permanently removed from your watchlist."
+                  deleteConfirmTitle="Stop Following Competitor?"
+                  deleteConfirmMessage="This competitor will be removed from your watchlist. You can add them back later."
+                  deleteButtonLabel="Do Not Follow"
+                  hideArchive={true}
                 />
               </div>
             </div>
