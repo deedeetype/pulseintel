@@ -59,6 +59,7 @@ export default function Dashboard() {
   const [scanProgress, setScanProgress] = useState('')
   const [scanProgressPercent, setScanProgressPercent] = useState(0)
   const scanCancelledRef = useRef(false)
+  const [existingProfileForIndustry, setExistingProfileForIndustry] = useState<any>(null)
   const [initialAlertId, setInitialAlertId] = useState<string | null>(null)
   const [initialCompetitorId, setInitialCompetitorId] = useState<string | null>(null)
   const [showAllNews, setShowAllNews] = useState(false)
@@ -90,6 +91,20 @@ export default function Dashboard() {
   // Fetch scans first
   const { scans, loading: loadingScans, refetch: refetchScans } = useScans(10)
   const [selectedScanId, setSelectedScanId] = useState<string | undefined>(undefined)
+  
+  // Check for existing profile when industry changes
+  useEffect(() => {
+    if (scanIndustry && scanIndustry !== 'auto') {
+      // Find existing completed scan for this industry (without company_url check)
+      const existing = scans.find(s => 
+        s.industry === scanIndustry && 
+        s.status === 'completed'
+      )
+      setExistingProfileForIndustry(existing || null)
+    } else {
+      setExistingProfileForIndustry(null)
+    }
+  }, [scanIndustry, scans])
   
   // Auto-select most recent scan
   useEffect(() => {
@@ -933,11 +948,14 @@ export default function Dashboard() {
                 Industry {companyUrl && <span className="text-indigo-400 text-xs ml-1">(auto-detected from URL)</span>}
               </label>
               
-              {/* Existing profile detection */}
-              {companyUrl && scanIndustry !== 'auto' && scans.some(s => s.company_url === companyUrl && s.industry === scanIndustry && s.status === 'completed') && (
-                <div className="mb-3 p-3 bg-indigo-500/10 border border-indigo-500/30 rounded-lg">
-                  <p className="text-indigo-300 text-sm">
-                    ✓ A profile for this industry already exists. Click <strong>Refresh</strong> to update with latest data.
+              {/* Existing profile detection - now checks industry only */}
+              {existingProfileForIndustry && scanIndustry !== 'auto' && (
+                <div className="mb-3 p-3 bg-amber-500/10 border border-amber-500/30 rounded-lg">
+                  <p className="text-amber-300 text-sm font-medium mb-1">
+                    ⚠️ You already have a <strong>{scanIndustry}</strong> profile
+                  </p>
+                  <p className="text-amber-200 text-xs">
+                    Use "Refresh Profile" instead to update it with latest data, or select a different industry.
                   </p>
                 </div>
               )}
@@ -1069,10 +1087,16 @@ export default function Dashboard() {
                   </button>
                   <button
                     onClick={handleRunScan}
-                    className="flex-1 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-medium transition flex items-center justify-center gap-2"
+                    disabled={!!existingProfileForIndustry && scanIndustry !== 'auto'}
+                    className={`flex-1 px-4 py-2 rounded-lg font-medium transition flex items-center justify-center gap-2 ${
+                      existingProfileForIndustry && scanIndustry !== 'auto'
+                        ? 'bg-slate-700 text-slate-500 cursor-not-allowed'
+                        : 'bg-indigo-600 hover:bg-indigo-700 text-white'
+                    }`}
+                    title={existingProfileForIndustry && scanIndustry !== 'auto' ? 'Profile already exists for this industry' : ''}
                   >
                     <Search className="w-4 h-4" />
-                    Start Scan
+                    {existingProfileForIndustry && scanIndustry !== 'auto' ? 'Profile Already Exists' : 'Start Scan'}
                   </button>
                 </>
               )}
