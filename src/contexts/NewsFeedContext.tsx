@@ -24,6 +24,7 @@ interface NewsFeedContextType {
   loading: boolean
   error: string | null
   markAsRead: (id: string) => void
+  archiveNewsOptimistic: (id: string) => void
   refetch: () => void
   unreadCount: number
   setScanFilter: (scanId: string | undefined) => void
@@ -94,6 +95,11 @@ export function NewsFeedProvider({ children }: { children: ReactNode }) {
     }
   }
 
+  function archiveNewsOptimistic(newsId: string) {
+    // Optimistic update - remove from list immediately
+    setNews(prev => prev.filter(n => n.id !== newsId))
+  }
+
   const unreadCount = news.filter(n => !n.read).length
 
   return (
@@ -101,7 +107,8 @@ export function NewsFeedProvider({ children }: { children: ReactNode }) {
       news, 
       loading, 
       error, 
-      markAsRead, 
+      markAsRead,
+      archiveNewsOptimistic,
       refetch: fetchNews,
       unreadCount,
       setScanFilter

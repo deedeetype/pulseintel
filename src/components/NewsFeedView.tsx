@@ -7,7 +7,7 @@ import { useArchivedNews } from '@/hooks/useArchivedNews'
 import { Newspaper, ExternalLink, TrendingUp, TrendingDown, Minus, Calendar, Archive, Trash2, MoreVertical } from 'lucide-react'
 
 export default function NewsFeedView() {
-  const { news, loading, markAsRead, refetch } = useNewsFeedContext()
+  const { news, loading, markAsRead, archiveNewsOptimistic, refetch } = useNewsFeedContext()
   const { archivedNews, loading: archivedLoading, fetchArchived } = useArchivedNews()
   const { archiveNews, deleteNews, loading: actionLoading } = useNewsActions()
   const [selectedNews, setSelectedNews] = useState<any | null>(null)
@@ -63,10 +63,14 @@ export default function NewsFeedView() {
 
   const handleArchive = async (newsId: string) => {
     try {
+      // Optimistic update - remove from UI immediately
+      archiveNewsOptimistic(newsId)
+      
+      // Then update backend
       await archiveNews(newsId)
-      // Refetch data to update list without full reload
-      await refetch()
     } catch (error) {
+      // If backend fails, refetch to restore accurate state
+      await refetch()
       alert('Failed to archive news')
     }
   }
