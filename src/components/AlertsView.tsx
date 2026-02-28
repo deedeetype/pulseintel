@@ -19,7 +19,7 @@ export default function AlertsView({ scanId }: { scanId?: string }) {
 
   useEffect(() => {
     fetchArchivedCount()
-  }, [])
+  }, [scanId])
 
   useEffect(() => {
     if (showArchived) {

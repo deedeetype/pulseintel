@@ -24,7 +24,7 @@ export default function InsightsView({ insights, loading, archiveInsightOptimist
 
   useEffect(() => {
     fetchArchivedCount()
-  }, [])
+  }, [scanId])
 
   useEffect(() => {
     if (showArchived) {

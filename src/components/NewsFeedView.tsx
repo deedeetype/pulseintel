@@ -17,9 +17,9 @@ export default function NewsFeedView({ scanId }: { scanId?: string }) {
   const [showArchived, setShowArchived] = useState(false)
   
   useEffect(() => {
-    // Fetch archived count on mount
+    // Fetch archived count on mount and when scanId changes
     fetchArchivedCount()
-  }, [])
+  }, [scanId])
   
   useEffect(() => {
     if (showArchived) {
