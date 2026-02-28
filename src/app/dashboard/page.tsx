@@ -594,7 +594,8 @@ export default function Dashboard() {
                       const { scanId, isRefresh } = await callStep('init', { 
                         industry: selectedScan.industry, 
                         companyUrl: selectedScan.company_url || undefined,
-                        companyName: selectedScan.company_name || undefined
+                        companyName: selectedScan.company_name || undefined,
+                        userId: user?.id
                       })
                       
                       // Step 1: News
