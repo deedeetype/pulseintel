@@ -34,6 +34,44 @@ export default function NewsFeedView() {
     if (filterMode === 'read') return item.read
     return true
   })
+  
+  // Group news by date
+  const groupNewsByDate = (newsItems: any[]) => {
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
+    
+    const yesterday = new Date(today)
+    yesterday.setDate(yesterday.getDate() - 1)
+    
+    const thisWeekStart = new Date(today)
+    thisWeekStart.setDate(thisWeekStart.getDate() - 7)
+    
+    const groups: Record<string, any[]> = {
+      'Today': [],
+      'Yesterday': [],
+      'This Week': [],
+      'Older': []
+    }
+    
+    newsItems.forEach(item => {
+      const publishedDate = new Date(item.published_at || item.created_at)
+      publishedDate.setHours(0, 0, 0, 0)
+      
+      if (publishedDate.getTime() === today.getTime()) {
+        groups['Today'].push(item)
+      } else if (publishedDate.getTime() === yesterday.getTime()) {
+        groups['Yesterday'].push(item)
+      } else if (publishedDate >= thisWeekStart) {
+        groups['This Week'].push(item)
+      } else {
+        groups['Older'].push(item)
+      }
+    })
+    
+    return groups
+  }
+  
+  const groupedNews = groupNewsByDate(filteredNews)
 
   const sentimentStyle = (sentiment: string | null) => {
     const styles: Record<string, string> = {
@@ -162,9 +200,26 @@ export default function NewsFeedView() {
         </button>
       </div>
 
-      {/* News List with inline expansion */}
-      <div className="grid gap-3">
-        {filteredNews.map((item) => (
+      {/* News List with inline expansion - Grouped by date */}
+      <div className="space-y-6">
+        {Object.entries(groupedNews).map(([groupName, items]) => {
+          if (items.length === 0) return null
+          
+          return (
+            <div key={groupName}>
+              {/* Date Group Header */}
+              <div className="flex items-center gap-3 mb-3">
+                <Calendar className="w-4 h-4 text-slate-500" />
+                <h3 className="text-sm font-semibold text-slate-400 uppercase tracking-wide">
+                  {groupName}
+                </h3>
+                <div className="flex-1 h-px bg-slate-800"></div>
+                <span className="text-xs text-slate-500">{items.length} article{items.length > 1 ? 's' : ''}</span>
+              </div>
+              
+              {/* News items in this group */}
+              <div className="grid gap-3">
+                {items.map((item) => (
           <div key={item.id}>
             <div
               className={`flex items-start gap-4 p-4 rounded-xl border transition relative ${
@@ -310,7 +365,11 @@ export default function NewsFeedView() {
               </div>
             )}
           </div>
-        ))}
+                ))}
+              </div>
+            </div>
+          )
+        })}
 
         {filteredNews.length === 0 && (
           <div className="text-slate-400 text-center py-12">

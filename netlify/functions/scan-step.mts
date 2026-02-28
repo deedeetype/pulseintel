@@ -249,10 +249,10 @@ async function stepNews(industry: string) {
     body: JSON.stringify({
       model: 'sonar-pro',
       messages: [
-        { role: 'system', content: 'News analyst. Respond with valid JSON only. Extract the ACTUAL publication date from each article, not today\'s date. If exact time unknown, use 12:00:00Z.' },
+        { role: 'system', content: 'News analyst. Respond with valid JSON only. Extract the ACTUAL publication date from each article (including if published today). If exact time unknown, use 12:00:00Z.' },
         { role: 'user', content: `Find 20 most recent ${industry} news articles published between ${sevenDaysAgo} and ${today}.
 
-CRITICAL: For EACH article, extract its ACTUAL publication date from the source (look for "Published on", byline dates, article metadata). Do NOT use today's date unless the article was actually published today.
+CRITICAL: For EACH article, extract its ACTUAL publication date from the source (look for "Published on", byline dates, article metadata). If the article was truly published today (${today}), use today's date. Otherwise use the actual date shown on the article.
 
 PRIORITIZE:
 1. Articles published TODAY (${today}) - most important
