@@ -614,7 +614,12 @@ export default function Dashboard() {
                       
                       setScanProgress(`✅ Refreshed! ${results.alerts} new alerts, ${results.insights} insights, ${results.news} articles`)
                       
+                      // Refetch ALL data to see new content
                       await refetchScans()
+                      await refetchCompetitors()
+                      await refetchInsights()
+                      // Alerts and News contexts will auto-refetch on scanId change or manual trigger
+                      window.location.reload() // Force full page reload to ensure all contexts refresh
                       
                       setTimeout(() => {
                         setIsScanning(false)

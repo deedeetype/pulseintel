@@ -240,21 +240,23 @@ JSON array: [{name, domain, description, position}]`
 
 // Step 2: Collect news via Perplexity
 async function stepNews(industry: string) {
+  const today = new Date().toISOString().split('T')[0] // YYYY-MM-DD format
+  
   const res = await fetch('https://api.perplexity.ai/chat/completions', {
     method: 'POST',
     headers: { 'Authorization': `Bearer ${PERPLEXITY_KEY}`, 'Content-Type': 'application/json' },
     body: JSON.stringify({
       model: 'sonar-pro',
       messages: [
-        { role: 'system', content: 'News analyst. Respond with valid JSON only.' },
-        { role: 'user', content: `15 most recent ${industry} news stories from the last 6 months maximum (prioritize last 30 days). Only include articles published in 2025 or 2026. JSON array: [{title, summary, source, url, tags, published_at}]` }
+        { role: 'system', content: 'News analyst. Respond with valid JSON only. IMPORTANT: published_at must be in ISO 8601 format (YYYY-MM-DDTHH:MM:SSZ).' },
+        { role: 'user', content: `Find 15 most recent ${industry} news stories. PRIORITIZE articles from TODAY (${today}) first, then recent articles from the last 7 days, then last 30 days if needed. Only include articles published in 2025 or 2026. Each article MUST have a unique URL. JSON array: [{title, summary, source, url, tags, published_at}]. published_at must be in ISO format like "2026-02-28T14:30:00Z".` }
       ],
       temperature: 0.4, max_tokens: 3000
     })
   })
   const data = await res.json()
   const news = parseJsonArray(data.choices[0].message.content)
-    .filter((n: any) => n.title)
+    .filter((n: any) => n.title && n.url) // Require URL to prevent duplicates
     .slice(0, 15)
   
   return { news, count: news.length }
@@ -470,22 +472,74 @@ async function stepFinalize(
   
   console.log(`[FINALIZE] Inserted ${insertedInsights.length} insights`)
   
-  // Write news
-  const insertedNews = news.length > 0 ? await supabasePost('news_feed',
-    news.map((n: any) => ({
-      user_id: actualUserId,
-      scan_id: scanId,
-      title: n.title,
-      summary: n.summary || n.description,
-      source: n.source || 'Perplexity',
-      source_url: n.url || null,
-      relevance_score: 0.5,
-      sentiment: 'neutral',
-      tags: n.tags || []
-    }))
-  ) : []
+  // Write news - with duplicate URL checking
+  let insertedNews: any[] = []
   
-  console.log(`[FINALIZE] Inserted ${insertedNews.length} news`)
+  if (news.length > 0) {
+    // Fetch existing news URLs for this user (across all scans)
+    const existingNewsRes = await fetch(
+      `${SUPABASE_URL}/rest/v1/news_feed?user_id=eq.${actualUserId}&select=source_url`,
+      {
+        headers: {
+          'apikey': SUPABASE_KEY!,
+          'Authorization': `Bearer ${SUPABASE_KEY}`,
+        }
+      }
+    )
+    const existingNews = await existingNewsRes.json()
+    const existingUrls = new Set(
+      existingNews.map((n: any) => n.source_url).filter((url: string) => url)
+    )
+    
+    console.log(`[FINALIZE] Found ${existingUrls.size} existing news URLs in database`)
+    
+    // Filter out duplicates and prioritize recent news
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
+    
+    const uniqueNews = news
+      .filter((n: any) => {
+        // Skip if URL already exists
+        if (n.url && existingUrls.has(n.url)) {
+          console.log(`[FINALIZE] Skipping duplicate URL: ${n.url}`)
+          return false
+        }
+        return true
+      })
+      .map((n: any) => ({
+        ...n,
+        published_date: n.published_at ? new Date(n.published_at) : new Date(),
+        isToday: n.published_at ? new Date(n.published_at) >= today : false
+      }))
+      .sort((a: any, b: any) => {
+        // Prioritize today's news first
+        if (a.isToday && !b.isToday) return -1
+        if (!a.isToday && b.isToday) return 1
+        // Then sort by date (newest first)
+        return b.published_date.getTime() - a.published_date.getTime()
+      })
+    
+    console.log(`[FINALIZE] Filtered to ${uniqueNews.length} unique news items (${uniqueNews.filter((n: any) => n.isToday).length} from today)`)
+    
+    if (uniqueNews.length > 0) {
+      insertedNews = await supabasePost('news_feed',
+        uniqueNews.map((n: any) => ({
+          user_id: actualUserId,
+          scan_id: scanId,
+          title: n.title,
+          summary: n.summary || n.description,
+          source: n.source || 'Perplexity',
+          source_url: n.url || null,
+          relevance_score: n.isToday ? 0.8 : 0.5, // Boost relevance for today's news
+          sentiment: 'neutral',
+          tags: n.tags || [],
+          published_at: n.published_at || new Date().toISOString()
+        }))
+      )
+    }
+  }
+  
+  console.log(`[FINALIZE] Inserted ${insertedNews.length} news articles`)
   
   // Generate industry analytics (only if new scan)
   let industryAnalytics = null
