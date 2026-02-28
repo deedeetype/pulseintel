@@ -840,7 +840,7 @@ export default function Dashboard() {
         )}
 
         {activeTab === 'alerts' && (
-          <AlertsView />
+          <AlertsView scanId={selectedScanId} />
         )}
 
         {activeTab === 'insights' && (
@@ -849,11 +849,12 @@ export default function Dashboard() {
             loading={loadingInsights}
             archiveInsightOptimistic={archiveInsightOptimistic}
             refetch={refetchInsights}
+            scanId={selectedScanId}
           />
         )}
 
         {activeTab === 'news' && (
-          <NewsFeedView />
+          <NewsFeedView scanId={selectedScanId} />
         )}
 
         {activeTab === 'mywatch' && (

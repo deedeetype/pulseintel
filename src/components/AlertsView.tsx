@@ -8,9 +8,9 @@ import { type Alert } from '@/lib/supabase'
 import { DollarSign, Rocket, Users, Newspaper, TrendingUp, FileText, Bell, Archive } from 'lucide-react'
 import ActionMenu from './ActionMenu'
 
-export default function AlertsView() {
+export default function AlertsView({ scanId }: { scanId?: string }) {
   const { alerts, loading, markAsRead, archiveAlertOptimistic, refetch } = useAlertsContext()
-  const { archivedAlerts, archivedCount, loading: archivedLoading, fetchArchived, fetchArchivedCount } = useArchivedAlerts()
+  const { archivedAlerts, archivedCount, loading: archivedLoading, fetchArchived, fetchArchivedCount } = useArchivedAlerts(scanId)
   const { archiveAlert, unarchiveAlert, deleteAlert } = useNewsActions()
   const [expandedId, setExpandedId] = useState<string | null>(null)
   const [filterPriority, setFilterPriority] = useState<string>('all')

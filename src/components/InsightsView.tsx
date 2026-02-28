@@ -12,11 +12,12 @@ interface Props {
   loading: boolean
   archiveInsightOptimistic: (id: string) => void
   refetch: () => void
+  scanId?: string
 }
 
-export default function InsightsView({ insights, loading, archiveInsightOptimistic, refetch }: Props) {
+export default function InsightsView({ insights, loading, archiveInsightOptimistic, refetch, scanId }: Props) {
   const { archiveInsight, unarchiveInsight, deleteInsight } = useNewsActions()
-  const { archivedInsights, archivedCount, loading: archivedLoading, fetchArchived, fetchArchivedCount } = useArchivedInsights()
+  const { archivedInsights, archivedCount, loading: archivedLoading, fetchArchived, fetchArchivedCount } = useArchivedInsights(scanId)
   const [selectedInsight, setSelectedInsight] = useState<Insight | null>(null)
   const [filterType, setFilterType] = useState<string>('all')
   const [showArchived, setShowArchived] = useState(false)

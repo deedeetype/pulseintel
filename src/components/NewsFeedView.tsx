@@ -6,9 +6,9 @@ import { useNewsActions } from '@/hooks/useNewsActions'
 import { useArchivedNews } from '@/hooks/useArchivedNews'
 import { Newspaper, ExternalLink, TrendingUp, TrendingDown, Minus, Calendar, Archive, Trash2, MoreVertical } from 'lucide-react'
 
-export default function NewsFeedView() {
+export default function NewsFeedView({ scanId }: { scanId?: string }) {
   const { news, loading, markAsRead, archiveNewsOptimistic, refetch } = useNewsFeedContext()
-  const { archivedNews, archivedCount, loading: archivedLoading, fetchArchived, fetchArchivedCount } = useArchivedNews()
+  const { archivedNews, archivedCount, loading: archivedLoading, fetchArchived, fetchArchivedCount } = useArchivedNews(scanId)
   const { archiveNews, unarchiveNews, deleteNews, loading: actionLoading } = useNewsActions()
   const [selectedNews, setSelectedNews] = useState<any | null>(null)
   const [filterMode, setFilterMode] = useState<'all' | 'read' | 'unread'>('all')

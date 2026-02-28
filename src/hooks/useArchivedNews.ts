@@ -7,7 +7,7 @@ import { useAuth } from '@clerk/nextjs'
 import { createSupabaseClient } from '@/lib/supabase'
 import { type NewsItem } from '@/contexts/NewsFeedContext'
 
-export function useArchivedNews() {
+export function useArchivedNews(scanId?: string) {
   const { getToken } = useAuth()
   const [archivedNews, setArchivedNews] = useState<NewsItem[]>([])
   const [archivedCount, setArchivedCount] = useState(0)
@@ -19,12 +19,18 @@ export function useArchivedNews() {
       const token = await getToken({ template: 'supabase' })
       const supabase = createSupabaseClient(token || undefined)
       
-      const { data, error } = await supabase
+      let query = supabase
         .from('news_feed')
         .select('*')
         .eq('archived', true)
         .order('published_at', { ascending: false, nullsFirst: false })
         .order('created_at', { ascending: false })
+      
+      if (scanId) {
+        query = query.eq('scan_id', scanId)
+      }
+      
+      const { data, error } = await query
       
       if (error) throw error
       
@@ -49,10 +55,16 @@ export function useArchivedNews() {
       const token = await getToken({ template: 'supabase' })
       const supabase = createSupabaseClient(token || undefined)
       
-      const { count, error } = await supabase
+      let query = supabase
         .from('news_feed')
         .select('*', { count: 'exact', head: true })
         .eq('archived', true)
+      
+      if (scanId) {
+        query = query.eq('scan_id', scanId)
+      }
+      
+      const { count, error } = await query
       
       if (error) throw error
       setArchivedCount(count || 0)

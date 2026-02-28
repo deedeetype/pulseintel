@@ -6,7 +6,7 @@ import { useState } from 'react'
 import { useAuth } from '@clerk/nextjs'
 import { createSupabaseClient, type Alert } from '@/lib/supabase'
 
-export function useArchivedAlerts() {
+export function useArchivedAlerts(scanId?: string) {
   const { getToken } = useAuth()
   const [archivedAlerts, setArchivedAlerts] = useState<Alert[]>([])
   const [archivedCount, setArchivedCount] = useState(0)
@@ -18,11 +18,17 @@ export function useArchivedAlerts() {
       const token = await getToken({ template: 'supabase' })
       const supabase = createSupabaseClient(token || undefined)
       
-      const { data, error } = await supabase
+      let query = supabase
         .from('alerts')
         .select('*')
         .eq('archived', true)
         .order('created_at', { ascending: false })
+      
+      if (scanId) {
+        query = query.eq('scan_id', scanId)
+      }
+      
+      const { data, error } = await query
       
       if (error) throw error
       
@@ -40,10 +46,16 @@ export function useArchivedAlerts() {
       const token = await getToken({ template: 'supabase' })
       const supabase = createSupabaseClient(token || undefined)
       
-      const { count, error } = await supabase
+      let query = supabase
         .from('alerts')
         .select('*', { count: 'exact', head: true })
         .eq('archived', true)
+      
+      if (scanId) {
+        query = query.eq('scan_id', scanId)
+      }
+      
+      const { count, error } = await query
       
       if (error) throw error
       setArchivedCount(count || 0)
