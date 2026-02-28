@@ -150,37 +150,49 @@ async function stepInit(industry: string, companyUrl?: string, companyName?: str
   // Use Clerk ID directly (TEXT, no conversion needed)
   const actualUserId = userId
   
-  // Check for existing completed profile with same industry + company_url
+  // Check for existing completed profile with same industry (and optionally same company_url)
+  let queryUrl = `${SUPABASE_URL}/rest/v1/scans?user_id=eq.${actualUserId}&industry=eq.${encodeURIComponent(industry)}&status=eq.completed&order=created_at.desc&limit=1`
+  
+  // If company_url is provided, filter by it as well
   if (companyUrl) {
-    const res = await fetch(
-      `${SUPABASE_URL}/rest/v1/scans?user_id=eq.${actualUserId}&industry=eq.${encodeURIComponent(industry)}&company_url=eq.${encodeURIComponent(companyUrl)}&status=eq.completed&order=created_at.desc&limit=1`,
-      {
-        headers: {
-          'apikey': SUPABASE_KEY!,
-          'Authorization': `Bearer ${SUPABASE_KEY}`,
-        }
-      }
-    )
-    const existingProfiles = await res.json()
+    queryUrl += `&company_url=eq.${encodeURIComponent(companyUrl)}`
+  } else {
+    // If no company_url, match scans with NULL company_url (industry-only profiles)
+    queryUrl += `&company_url=is.null`
+  }
+  
+  const res = await fetch(queryUrl, {
+    headers: {
+      'apikey': SUPABASE_KEY!,
+      'Authorization': `Bearer ${SUPABASE_KEY}`,
+    }
+  })
+  const existingProfiles = await res.json()
+  
+  console.log(`[stepInit] Looking for existing ${industry} profile (companyUrl: ${companyUrl || 'null'})`)
+  console.log(`[stepInit] Found ${existingProfiles.length} existing profiles`)
+  
+  if (existingProfiles && existingProfiles.length > 0) {
+    // REUSE existing profile - update status and timestamps
+    const existingScan = existingProfiles[0]
+    console.log(`[stepInit] REUSING existing scan ${existingScan.id} (refresh count: ${existingScan.refresh_count || 0})`)
     
-    if (existingProfiles && existingProfiles.length > 0) {
-      // REUSE existing profile - update status and timestamps
-      const existingScan = existingProfiles[0]
-      await supabasePatch('scans', `id=eq.${existingScan.id}`, {
-        status: 'running',
-        last_refreshed_at: new Date().toISOString(),
-        refresh_count: (existingScan.refresh_count || 0) + 1
-      })
-      
-      return { 
-        scanId: existingScan.id, 
-        isRefresh: true,
-        userId: actualUserId
-      }
+    await supabasePatch('scans', `id=eq.${existingScan.id}`, {
+      status: 'running',
+      last_refreshed_at: new Date().toISOString(),
+      refresh_count: (existingScan.refresh_count || 0) + 1,
+      updated_at: new Date().toISOString()
+    })
+    
+    return { 
+      scanId: existingScan.id, 
+      isRefresh: true,
+      userId: actualUserId
     }
   }
   
   // Create new profile
+  console.log(`[stepInit] Creating NEW scan for ${industry}`)
   const [scan] = await supabasePost('scans', {
     user_id: actualUserId,
     industry,

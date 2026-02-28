@@ -590,8 +590,12 @@ export default function Dashboard() {
                     try {
                       setScanProgress('🔄 Refreshing profile data...')
                       
-                      // Step 0: Init (will detect existing profile)
-                      const { scanId, isRefresh } = await callStep('init', { 
+                      // Step 0: Use the CURRENT scan ID for refresh (no new scan creation)
+                      const scanId = selectedScan.id
+                      const isRefresh = true
+                      
+                      // Update scan metadata
+                      await callStep('init', { 
                         industry: selectedScan.industry, 
                         companyUrl: selectedScan.company_url || undefined,
                         companyName: selectedScan.company_name || undefined,
