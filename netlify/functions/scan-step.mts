@@ -241,6 +241,7 @@ JSON array: [{name, domain, description, position}]`
 // Step 2: Collect news via Perplexity
 async function stepNews(industry: string) {
   const today = new Date().toISOString().split('T')[0] // YYYY-MM-DD format
+  const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
   
   const res = await fetch('https://api.perplexity.ai/chat/completions', {
     method: 'POST',
@@ -248,16 +249,58 @@ async function stepNews(industry: string) {
     body: JSON.stringify({
       model: 'sonar-pro',
       messages: [
-        { role: 'system', content: 'News analyst. Respond with valid JSON only. IMPORTANT: published_at must be in ISO 8601 format (YYYY-MM-DDTHH:MM:SSZ).' },
-        { role: 'user', content: `Find 15 most recent ${industry} news stories. PRIORITIZE articles from TODAY (${today}) first, then recent articles from the last 7 days, then last 30 days if needed. Only include articles published in 2025 or 2026. Each article MUST have a unique URL. JSON array: [{title, summary, source, url, tags, published_at}]. published_at must be in ISO format like "2026-02-28T14:30:00Z".` }
+        { role: 'system', content: 'News analyst. Respond with valid JSON only. Extract the ACTUAL publication date from each article, not today\'s date. If exact time unknown, use 12:00:00Z.' },
+        { role: 'user', content: `Find 20 most recent ${industry} news articles published between ${sevenDaysAgo} and ${today}.
+
+CRITICAL: For EACH article, extract its ACTUAL publication date from the source (look for "Published on", byline dates, article metadata). Do NOT use today's date unless the article was actually published today.
+
+PRIORITIZE:
+1. Articles published TODAY (${today}) - most important
+2. Articles from the last 3 days
+3. Articles from the last 7 days
+
+Each article MUST include:
+- Unique URL (no duplicates)
+- ACTUAL publication date in ISO 8601 format (YYYY-MM-DDTHH:MM:SSZ)
+- If exact time unknown, use 12:00:00Z
+
+JSON array: [{
+  "title": "Article title",
+  "summary": "2-3 sentence summary",
+  "source": "Publication name",
+  "url": "https://...",
+  "tags": ["tag1", "tag2"],
+  "published_at": "YYYY-MM-DDTHH:MM:SSZ"
+}]
+
+Example: "published_at": "2026-02-27T14:30:00Z" (if published yesterday at 2:30 PM)` }
       ],
-      temperature: 0.4, max_tokens: 3000
+      temperature: 0.3, max_tokens: 4000
     })
   })
   const data = await res.json()
+  
+  console.log('[NEWS] Raw Perplexity response sample:', JSON.stringify(data?.choices?.[0]?.message?.content || '').slice(0, 500))
+  
   const news = parseJsonArray(data.choices[0].message.content)
-    .filter((n: any) => n.title && n.url) // Require URL to prevent duplicates
-    .slice(0, 15)
+    .filter((n: any) => {
+      // Must have title, URL, and published_at
+      if (!n.title || !n.url || !n.published_at) {
+        console.log('[NEWS] Skipping incomplete article:', n.title || 'no title')
+        return false
+      }
+      // Validate published_at is a real date (not today unless actually published today)
+      const pubDate = new Date(n.published_at)
+      const now = new Date()
+      if (isNaN(pubDate.getTime())) {
+        console.log('[NEWS] Invalid date for:', n.title)
+        return false
+      }
+      return true
+    })
+    .slice(0, 20)
+  
+  console.log(`[NEWS] Collected ${news.length} articles with valid publication dates`)
   
   return { news, count: news.length }
 }
@@ -493,33 +536,60 @@ async function stepFinalize(
     
     console.log(`[FINALIZE] Found ${existingUrls.size} existing news URLs in database`)
     
-    // Filter out duplicates and prioritize recent news
+    // Filter out duplicates based on URL (only check recent duplicates - last 24h)
+    const yesterday = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()
+    
+    // Fetch recent news (last 24h) to detect true duplicates
+    const recentNewsRes = await fetch(
+      `${SUPABASE_URL}/rest/v1/news_feed?user_id=eq.${actualUserId}&created_at=gte.${yesterday}&select=source_url`,
+      {
+        headers: {
+          'apikey': SUPABASE_KEY!,
+          'Authorization': `Bearer ${SUPABASE_KEY}`,
+        }
+      }
+    )
+    const recentNews = await recentNewsRes.json()
+    const recentUrls = new Set(
+      recentNews.map((n: any) => n.source_url).filter((url: string) => url)
+    )
+    
+    console.log(`[FINALIZE] Found ${recentUrls.size} news URLs from last 24h (true duplicate check)`)
+    
     const today = new Date()
     today.setHours(0, 0, 0, 0)
     
     const uniqueNews = news
       .filter((n: any) => {
-        // Skip if URL already exists
-        if (n.url && existingUrls.has(n.url)) {
-          console.log(`[FINALIZE] Skipping duplicate URL: ${n.url}`)
+        // Skip if URL was inserted in the last 24h (true duplicate)
+        if (n.url && recentUrls.has(n.url)) {
+          console.log(`[FINALIZE] Skipping recent duplicate URL (last 24h): ${n.url}`)
           return false
         }
         return true
       })
-      .map((n: any) => ({
-        ...n,
-        published_date: n.published_at ? new Date(n.published_at) : new Date(),
-        isToday: n.published_at ? new Date(n.published_at) >= today : false
-      }))
+      .map((n: any) => {
+        const published_date = n.published_at ? new Date(n.published_at) : new Date()
+        return {
+          ...n,
+          published_date,
+          isToday: published_date >= today,
+          daysAgo: Math.floor((Date.now() - published_date.getTime()) / (24 * 60 * 60 * 1000))
+        }
+      })
       .sort((a: any, b: any) => {
-        // Prioritize today's news first
-        if (a.isToday && !b.isToday) return -1
-        if (!a.isToday && b.isToday) return 1
-        // Then sort by date (newest first)
+        // Sort by actual publication date (newest first)
         return b.published_date.getTime() - a.published_date.getTime()
       })
     
-    console.log(`[FINALIZE] Filtered to ${uniqueNews.length} unique news items (${uniqueNews.filter((n: any) => n.isToday).length} from today)`)
+    const todayCount = uniqueNews.filter((n: any) => n.isToday).length
+    const last3Days = uniqueNews.filter((n: any) => n.daysAgo <= 3).length
+    const last7Days = uniqueNews.filter((n: any) => n.daysAgo <= 7).length
+    
+    console.log(`[FINALIZE] Filtered to ${uniqueNews.length} unique news items:`)
+    console.log(`  - Today: ${todayCount}`)
+    console.log(`  - Last 3 days: ${last3Days}`)
+    console.log(`  - Last 7 days: ${last7Days}`)
     
     if (uniqueNews.length > 0) {
       insertedNews = await supabasePost('news_feed',
@@ -530,12 +600,17 @@ async function stepFinalize(
           summary: n.summary || n.description,
           source: n.source || 'Perplexity',
           source_url: n.url || null,
-          relevance_score: n.isToday ? 0.8 : 0.5, // Boost relevance for today's news
+          relevance_score: n.daysAgo === 0 ? 0.9 : (n.daysAgo <= 3 ? 0.7 : 0.5),
           sentiment: 'neutral',
           tags: n.tags || [],
-          published_at: n.published_at || new Date().toISOString()
+          published_at: n.published_at // Use ACTUAL publication date from article
         }))
       )
+      
+      console.log(`[FINALIZE] Sample dates from inserted news:`)
+      insertedNews.slice(0, 3).forEach((n: any) => {
+        console.log(`  - "${n.title?.slice(0, 50)}..." published at ${n.published_at}`)
+      })
     }
   }
   
