@@ -235,8 +235,9 @@ export default async function handler(
     const scans: Scan[] = await scansRes.json()
     console.log(`[CRON-REFRESH-SCANS] Processing ${scans.length} scans`)
     
-    // Create refresh logs for each scan
+    // Create refresh logs and FIRE-AND-FORGET the refresh process
     const logIds: Record<string, string> = {}
+    
     for (const scan of scans) {
       console.log(`[CRON-REFRESH-SCANS] Creating log for scan ${scan.id}, user ${scan.user_id}`)
       
@@ -256,56 +257,55 @@ export default async function handler(
         })
       })
       
-      console.log(`[CRON-REFRESH-SCANS] Log creation response status: ${logRes.status}`)
-      
       if (!logRes.ok) {
         const errorText = await logRes.text()
         console.error(`[CRON-REFRESH-SCANS] Failed to create log: ${logRes.status} - ${errorText}`)
-        // Continue même si le log échoue
         continue
       }
       
       const logData = await logRes.json()
-      console.log(`[CRON-REFRESH-SCANS] Log created:`, logData)
       logIds[scan.id] = logData[0]?.id
     }
     
-    // Refresh each scan
-    const results = await Promise.allSettled(
-      scans.map(async (scan) => {
-        const result = await refreshScan(scan, logIds[scan.id])
-        
-        // Update schedule last_run_at
-        const schedule = schedules.find(s => s.scan_id === scan.id)
-        if (schedule) {
-          await fetch(`${SUPABASE_URL}/rest/v1/scan_schedules?id=eq.${schedule.id}`, {
-            method: 'PATCH',
-            headers: {
-              'apikey': SUPABASE_SERVICE_KEY!,
-              'Authorization': `Bearer ${SUPABASE_SERVICE_KEY}`,
-              'Content-Type': 'application/json',
-              'Prefer': 'return=minimal'
-            },
-            body: JSON.stringify({
-              last_run_at: new Date().toISOString()
-            })
-          })
-        }
-        
-        return result
+    // FIRE-AND-FORGET: Launch refreshes without waiting
+    scans.forEach((scan) => {
+      const logId = logIds[scan.id]
+      if (!logId) return
+      
+      console.log(`[CRON-REFRESH-SCANS] Launching async refresh for scan ${scan.id}`)
+      
+      // Don't await - let it run in background
+      refreshScan(scan, logId).then(() => {
+        console.log(`[CRON-REFRESH-SCANS] Background refresh completed for ${scan.id}`)
+      }).catch((err) => {
+        console.error(`[CRON-REFRESH-SCANS] Background refresh failed for ${scan.id}:`, err)
       })
-    )
+      
+      // Update schedule last_run_at immediately
+      const schedule = schedules.find(s => s.scan_id === scan.id)
+      if (schedule) {
+        fetch(`${SUPABASE_URL}/rest/v1/scan_schedules?id=eq.${schedule.id}`, {
+          method: 'PATCH',
+          headers: {
+            'apikey': SUPABASE_SERVICE_KEY!,
+            'Authorization': `Bearer ${SUPABASE_SERVICE_KEY}`,
+            'Content-Type': 'application/json',
+            'Prefer': 'return=minimal'
+          },
+          body: JSON.stringify({
+            last_run_at: new Date().toISOString()
+          })
+        }).catch(err => console.error(`Failed to update schedule ${schedule.id}:`, err))
+      }
+    })
     
-    const successful = results.filter(r => r.status === 'fulfilled' && r.value.success).length
-    const failed = results.length - successful
-    
-    console.log(`[CRON-REFRESH-SCANS] Completed: ${successful} successful, ${failed} failed`)
+    // Return immediately - refreshes continue in background
+    console.log(`[CRON-REFRESH-SCANS] Launched ${scans.length} background refreshes`)
     
     return res.status(200).json({
-      message: 'Scheduled scans processed',
+      message: 'Scheduled scans launched (processing in background)',
       total: schedules.length,
-      successful,
-      failed,
+      launched: scans.length,
       timestamp: new Date().toISOString()
     })
     
