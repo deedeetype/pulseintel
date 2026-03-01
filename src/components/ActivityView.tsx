@@ -195,28 +195,43 @@ export default function ActivityView() {
                   <span>{formatTimeAgo(log.completed_at || log.started_at)}</span>
                 </div>
                 
-                {log.status === 'success' && (log.new_insights_count > 0 || log.new_alerts_count > 0 || log.new_news_count > 0) && (
+                {/* Show stats for completed refreshes */}
+                {log.status === 'success' && (
                   <div className="flex items-center gap-4 mt-3 text-sm">
-                    {log.new_insights_count > 0 && (
-                      <div className="flex items-center gap-1 text-indigo-400">
-                        <TrendingUp className="w-4 h-4" />
-                        <span className="font-medium">{log.new_insights_count}</span>
-                        <span className="text-slate-400">insights</span>
+                    {log.new_insights_count !== null && log.new_insights_count !== undefined && (
+                      <div className="flex items-center gap-1">
+                        <TrendingUp className={`w-4 h-4 ${log.new_insights_count > 0 ? 'text-indigo-400' : 'text-slate-600'}`} />
+                        <span className={`font-medium ${log.new_insights_count > 0 ? 'text-indigo-400' : 'text-slate-500'}`}>
+                          {log.new_insights_count}
+                        </span>
+                        <span className="text-slate-400">insight{log.new_insights_count !== 1 ? 's' : ''}</span>
                       </div>
                     )}
-                    {log.new_alerts_count > 0 && (
-                      <div className="flex items-center gap-1 text-red-400">
-                        <AlertCircle className="w-4 h-4" />
-                        <span className="font-medium">{log.new_alerts_count}</span>
-                        <span className="text-slate-400">alerts</span>
+                    {log.new_alerts_count !== null && log.new_alerts_count !== undefined && (
+                      <div className="flex items-center gap-1">
+                        <AlertCircle className={`w-4 h-4 ${log.new_alerts_count > 0 ? 'text-red-400' : 'text-slate-600'}`} />
+                        <span className={`font-medium ${log.new_alerts_count > 0 ? 'text-red-400' : 'text-slate-500'}`}>
+                          {log.new_alerts_count}
+                        </span>
+                        <span className="text-slate-400">alert{log.new_alerts_count !== 1 ? 's' : ''}</span>
                       </div>
                     )}
-                    {log.new_news_count > 0 && (
-                      <div className="flex items-center gap-1 text-slate-400">
-                        <span className="font-medium">{log.new_news_count}</span>
-                        <span>news</span>
+                    {log.new_news_count !== null && log.new_news_count !== undefined && (
+                      <div className="flex items-center gap-1">
+                        <span className={`font-medium ${log.new_news_count > 0 ? 'text-slate-300' : 'text-slate-500'}`}>
+                          {log.new_news_count}
+                        </span>
+                        <span className="text-slate-400">news</span>
                       </div>
                     )}
+                  </div>
+                )}
+                
+                {/* Show processing message for running refreshes */}
+                {log.status === 'running' && (
+                  <div className="mt-2 text-xs text-indigo-400 flex items-center gap-2">
+                    <RefreshCw className="w-3 h-3 animate-spin" />
+                    <span>Processing refresh...</span>
                   </div>
                 )}
                 
