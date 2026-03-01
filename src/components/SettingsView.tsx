@@ -89,8 +89,6 @@ export default function SettingsView() {
       <div className="flex gap-2 mb-6 border-b border-slate-800">
         {[
           { id: 'profile', label: 'Profile', icon: User },
-          { id: 'scan', label: 'Scan Preferences', icon: Zap },
-          { id: 'notifications', label: 'Notifications', icon: Bell },
           { id: 'automated', label: 'Automated Scans', icon: RefreshCw }
         ].map((section) => {
           const Icon = section.icon
@@ -367,20 +365,6 @@ export default function SettingsView() {
         </div>
       </div>
         </>
-      )}
-
-      {/* Scan Preferences Section */}
-      {activeSection === 'scan' && (
-        <div>
-          <p className="text-slate-400 mb-4">Scan preferences content (existing settings)</p>
-        </div>
-      )}
-
-      {/* Notifications Section */}
-      {activeSection === 'notifications' && (
-        <div>
-          <p className="text-slate-400 mb-4">Notification preferences content</p>
-        </div>
       )}
 
       {/* Automated Scans Section */}
