@@ -173,7 +173,7 @@ export default function ActivityView() {
                 <div className="flex items-center gap-2 flex-wrap">
                   <h3 className="text-white font-medium">
                     {log.scan?.company_name ? `${log.scan.company_name} — ` : ''}
-                    {getIndustryDisplayName(log.scan?.industry)}
+                    {log.scan?.industry ? getIndustryDisplayName(log.scan.industry) : 'Unknown Industry'}
                   </h3>
                   {getTriggerBadge(log.triggered_by)}
                   {log.status === 'success' && (

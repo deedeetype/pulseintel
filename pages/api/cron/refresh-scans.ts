@@ -30,6 +30,25 @@ interface Scan {
 async function refreshScan(scan: Scan, logId: string) {
   console.log(`[REFRESH] Starting refresh for scan ${scan.id} (${scan.industry})`)
   
+  // Set a timeout to auto-fail if process takes too long
+  const timeoutId = setTimeout(async () => {
+    console.log(`[REFRESH] Timeout for scan ${scan.id} - marking as failed`)
+    await fetch(`${SUPABASE_URL}/rest/v1/refresh_logs?id=eq.${logId}`, {
+      method: 'PATCH',
+      headers: {
+        'apikey': SUPABASE_SERVICE_KEY!,
+        'Authorization': `Bearer ${SUPABASE_SERVICE_KEY}`,
+        'Content-Type': 'application/json',
+        'Prefer': 'return=minimal'
+      },
+      body: JSON.stringify({
+        completed_at: new Date().toISOString(),
+        status: 'failed',
+        error_message: 'Process timeout (exceeded 45s limit)'
+      })
+    })
+  }, 45000) // 45 second timeout
+  
   try {
     // Update log: started
     await fetch(`${SUPABASE_URL}/rest/v1/refresh_logs?id=eq.${logId}`, {
@@ -106,6 +125,9 @@ async function refreshScan(scan: Scan, logId: string) {
     
     console.log(`[REFRESH] Completed scan ${scan.id}`)
     
+    // Clear timeout on success
+    clearTimeout(timeoutId)
+    
     // Update log: completed successfully
     await fetch(`${SUPABASE_URL}/rest/v1/refresh_logs?id=eq.${logId}`, {
       method: 'PATCH',
@@ -128,6 +150,9 @@ async function refreshScan(scan: Scan, logId: string) {
     
   } catch (error: any) {
     console.error(`[REFRESH] Error for scan ${scan.id}:`, error.message)
+    
+    // Clear timeout on error
+    clearTimeout(timeoutId)
     
     // Update log: failed
     await fetch(`${SUPABASE_URL}/rest/v1/refresh_logs?id=eq.${logId}`, {
