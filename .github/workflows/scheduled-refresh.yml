@@ -1,4 +1,4 @@
-name: Scheduled Scan Refresh
+name: Scheduled Scan Refresh v2
 
 on:
   schedule:
@@ -9,7 +9,7 @@ on:
 jobs:
   refresh-scans:
     runs-on: ubuntu-latest
-    timeout-minutes: 120 # 2 hours max (plenty of time for hundreds of scans)
+    timeout-minutes: 120
     
     steps:
       - name: Checkout repo
@@ -20,196 +20,203 @@ jobs:
         with:
           node-version: '20'
       
-      - name: Fetch due schedules and process refreshes
+      - name: Install dependencies
+        run: npm install @supabase/supabase-js
+      
+      - name: Process scheduled refreshes
         env:
           SUPABASE_URL: https://erkzlqgpbrxokyqtrgnf.supabase.co
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
           NETLIFY_URL: https://pulseintel.netlify.app
         run: |
-          echo "🦝 Starting scheduled refresh at $(date -u)"
+          node << 'NODESCRIPT'
+          const { createClient } = require('@supabase/supabase-js')
           
-          # Fetch all enabled schedules that are due
-          DUE_SCHEDULES=$(curl -s -X GET \
-            "${SUPABASE_URL}/rest/v1/scan_schedules?enabled=eq.true&next_run_at=lte.$(date -u +"%Y-%m-%dT%H:%M:%S")&select=id,scan_id,user_id,frequency" \
-            -H "apikey: ${SUPABASE_SERVICE_KEY}" \
-            -H "Authorization: Bearer ${SUPABASE_SERVICE_KEY}")
+          const supabase = createClient(
+            process.env.SUPABASE_URL,
+            process.env.SUPABASE_SERVICE_KEY
+          )
           
-          SCHEDULE_COUNT=$(echo "$DUE_SCHEDULES" | jq '. | length')
-          echo "📅 Found $SCHEDULE_COUNT due schedules"
+          async function sleep(ms) {
+            return new Promise(resolve => setTimeout(resolve, ms))
+          }
           
-          if [ "$SCHEDULE_COUNT" -eq 0 ]; then
-            echo "✅ No schedules due - exiting"
-            exit 0
-          fi
+          async function callNetlifyFunction(step, data) {
+            const response = await fetch(`${process.env.NETLIFY_URL}/.netlify/functions/scan-step`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ step, ...data })
+            })
+            if (!response.ok) {
+              throw new Error(`${step} step failed: ${response.status}`)
+            }
+            return response.json()
+          }
           
-          # Fetch scan details
-          SCAN_IDS=$(echo "$DUE_SCHEDULES" | jq -r '.[].scan_id' | tr '\n' ',' | sed 's/,$//')
+          async function processRefresh(scan, scheduleId) {
+            console.log(`\n🔄 Processing: ${scan.id.slice(0,8)} (${scan.industry})`)
+            
+            // Create refresh log
+            const { data: logData, error: logError } = await supabase
+              .from('refresh_logs')
+              .insert({
+                scan_id: scan.id,
+                user_id: scan.user_id,
+                triggered_by: 'scheduled',
+                status: 'running',
+                started_at: new Date().toISOString()
+              })
+              .select()
+            
+            if (logError) {
+              console.error(`  ❌ Failed to create log:`, logError)
+              return
+            }
+            
+            const logId = logData[0].id
+            console.log(`  📝 Log created: ${logId.slice(0,8)}`)
+            
+            try {
+              // Step 1: Fetch competitors
+              console.log(`  👥 Fetching competitors...`)
+              const { data: competitors } = await supabase
+                .from('competitors')
+                .select('name')
+                .eq('scan_id', scan.id)
+              
+              const competitorNames = competitors?.map(c => c.name) || []
+              console.log(`  ✓ Found ${competitorNames.length} competitors`)
+              
+              // Step 2: Collect news
+              console.log(`  📰 Collecting news...`)
+              const newsResponse = await callNetlifyFunction('news', {
+                industry: scan.industry
+              })
+              console.log(`  ✓ Collected ${newsResponse.count || 0} news items`)
+              
+              // Step 3: Generate insights
+              console.log(`  💡 Generating insights...`)
+              const insightsResponse = await callNetlifyFunction('analyze-insights', {
+                scanId: scan.id,
+                industry: scan.industry,
+                news: newsResponse.news || [],
+                competitorNames,
+                userId: scan.user_id
+              })
+              console.log(`  ✓ Generated ${insightsResponse.count || 0} insights`)
+              
+              // Step 4: Generate alerts
+              console.log(`  🔔 Generating alerts...`)
+              const alertsResponse = await callNetlifyFunction('analyze-alerts', {
+                scanId: scan.id,
+                industry: scan.industry,
+                news: newsResponse.news || [],
+                competitorNames,
+                userId: scan.user_id
+              })
+              console.log(`  ✓ Generated ${alertsResponse.count || 0} alerts`)
+              
+              // Step 5: Finalize
+              console.log(`  💾 Finalizing...`)
+              const finalizeResponse = await callNetlifyFunction('finalize', {
+                scanId: scan.id,
+                industry: scan.industry,
+                competitors: [],
+                insights: insightsResponse.insights || [],
+                alerts: alertsResponse.alerts || [],
+                news: newsResponse.news || [],
+                isRefresh: true,
+                userId: scan.user_id
+              })
+              
+              console.log(`  ✓ Saved: ${finalizeResponse.alerts} alerts, ${finalizeResponse.insights} insights, ${finalizeResponse.news} news`)
+              
+              // Mark log as success
+              await supabase
+                .from('refresh_logs')
+                .update({
+                  status: 'success',
+                  completed_at: new Date().toISOString(),
+                  new_alerts_count: finalizeResponse.alerts,
+                  new_insights_count: finalizeResponse.insights,
+                  new_news_count: finalizeResponse.news
+                })
+                .eq('id', logId)
+              
+              // Update schedule last_run_at
+              await supabase
+                .from('scan_schedules')
+                .update({ last_run_at: new Date().toISOString() })
+                .eq('id', scheduleId)
+              
+              console.log(`  ✅ Completed successfully`)
+              
+            } catch (error) {
+              console.error(`  ❌ Error:`, error.message)
+              
+              // Mark log as failed
+              await supabase
+                .from('refresh_logs')
+                .update({
+                  status: 'failed',
+                  completed_at: new Date().toISOString(),
+                  error_message: error.message
+                })
+                .eq('id', logId)
+            }
+          }
           
-          if [ -z "$SCAN_IDS" ]; then
-            echo "❌ No scan IDs found"
-            exit 0
-          fi
+          async function main() {
+            console.log(`🦝 Starting scheduled refresh at ${new Date().toISOString()}`)
+            
+            // Fetch due schedules
+            const { data: schedules, error: schedError } = await supabase
+              .from('scan_schedules')
+              .select('id, scan_id, user_id, frequency')
+              .eq('enabled', true)
+              .lte('next_run_at', new Date().toISOString())
+            
+            if (schedError) {
+              console.error('Failed to fetch schedules:', schedError)
+              process.exit(1)
+            }
+            
+            console.log(`📅 Found ${schedules.length} due schedules`)
+            
+            if (schedules.length === 0) {
+              console.log('✅ No schedules due')
+              return
+            }
+            
+            // Fetch scan details
+            const scanIds = schedules.map(s => s.scan_id)
+            const { data: scans, error: scanError } = await supabase
+              .from('scans')
+              .select('id, user_id, industry, company_url, company_name')
+              .in('id', scanIds)
+            
+            if (scanError) {
+              console.error('Failed to fetch scans:', scanError)
+              process.exit(1)
+            }
+            
+            console.log(`📋 Scans to process: ${scans.length}`)
+            scans.forEach(s => {
+              console.log(`  - ${s.id.slice(0,8)} | ${s.industry} | ${s.company_name || 'N/A'}`)
+            })
+            
+            // Process each scan sequentially
+            for (const scan of scans) {
+              const schedule = schedules.find(sch => sch.scan_id === scan.id)
+              await processRefresh(scan, schedule.id)
+              await sleep(2000) // Wait 2 seconds between scans
+            }
+            
+            console.log(`\n🎉 All scheduled refreshes completed`)
+          }
           
-          SCANS=$(curl -s -X GET \
-            "${SUPABASE_URL}/rest/v1/scans?id=in.(${SCAN_IDS})&select=id,user_id,industry,company_url,company_name" \
-            -H "apikey: ${SUPABASE_SERVICE_KEY}" \
-            -H "Authorization: Bearer ${SUPABASE_SERVICE_KEY}")
-          
-          echo "📋 Scans to process:"
-          echo "$SCANS" | jq -r '.[] | "  - \(.id[0:8]) | \(.industry) | \(.company_name // "N/A")"'
-          
-          # Process each scan sequentially (to avoid overwhelming Netlify Functions)
-          echo "$SCANS" | jq -c '.[]' | while IFS= read -r scan; do
-            SCAN_ID=$(echo "$scan" | jq -r '.id')
-            USER_ID=$(echo "$scan" | jq -r '.user_id')
-            INDUSTRY=$(echo "$scan" | jq -r '.industry')
-            
-            echo ""
-            echo "🔄 Processing scan: ${SCAN_ID:0:8} (${INDUSTRY})"
-            
-            # Create refresh log
-            LOG_RESPONSE=$(curl -s -X POST \
-              "${SUPABASE_URL}/rest/v1/refresh_logs" \
-              -H "apikey: ${SUPABASE_SERVICE_KEY}" \
-              -H "Authorization: Bearer ${SUPABASE_SERVICE_KEY}" \
-              -H "Content-Type: application/json" \
-              -H "Prefer: return=representation" \
-              -d "{\"scan_id\":\"${SCAN_ID}\",\"user_id\":\"${USER_ID}\",\"triggered_by\":\"scheduled\",\"status\":\"running\",\"started_at\":\"$(date -u +"%Y-%m-%dT%H:%M:%SZ")\"}")
-            
-            LOG_ID=$(echo "$LOG_RESPONSE" | jq -r '.[0].id')
-            echo "  📝 Created log: ${LOG_ID:0:8}"
-            
-            # Step 1: Fetch existing competitors
-            echo "  👥 Fetching competitors..."
-            COMPETITORS=$(curl -s -X GET \
-              "${SUPABASE_URL}/rest/v1/competitors?scan_id=eq.${SCAN_ID}&select=name" \
-              -H "apikey: ${SUPABASE_SERVICE_KEY}" \
-              -H "Authorization: Bearer ${SUPABASE_SERVICE_KEY}")
-            
-            COMPETITOR_NAMES=$(echo "$COMPETITORS" | jq -c '[.[].name]')
-            COMPETITOR_COUNT=$(echo "$COMPETITORS" | jq '. | length')
-            echo "  ✓ Found ${COMPETITOR_COUNT} competitors"
-            
-            # Step 2: Collect news
-            echo "  📰 Collecting news..."
-            NEWS_RESPONSE=$(curl -s -X POST \
-              "${NETLIFY_URL}/.netlify/functions/scan-step" \
-              -H "Content-Type: application/json" \
-              -d "{\"step\":\"news\",\"industry\":\"${INDUSTRY}\"}")
-            
-            if [ $? -ne 0 ]; then
-              echo "  ❌ News step failed"
-              curl -s -X PATCH \
-                "${SUPABASE_URL}/rest/v1/refresh_logs?id=eq.${LOG_ID}" \
-                -H "apikey: ${SUPABASE_SERVICE_KEY}" \
-                -H "Authorization: Bearer ${SUPABASE_SERVICE_KEY}" \
-                -H "Content-Type: application/json" \
-                -d "{\"status\":\"failed\",\"error_message\":\"News step failed\",\"completed_at\":\"$(date -u +"%Y-%m-%dT%H:%M:%SZ")\"}"
-              continue
-            fi
-            
-            NEWS=$(echo "$NEWS_RESPONSE" | jq -c '.news // []')
-            NEWS_COUNT=$(echo "$NEWS_RESPONSE" | jq '.count // 0')
-            echo "  ✓ Collected ${NEWS_COUNT} news items"
-            
-            # Step 3: Generate insights
-            echo "  💡 Generating insights..."
-            INSIGHTS_RESPONSE=$(curl -s -X POST \
-              "${NETLIFY_URL}/.netlify/functions/scan-step" \
-              -H "Content-Type: application/json" \
-              -d "{\"step\":\"analyze-insights\",\"scanId\":\"${SCAN_ID}\",\"industry\":\"${INDUSTRY}\",\"news\":${NEWS},\"competitorNames\":${COMPETITOR_NAMES},\"userId\":\"${USER_ID}\"}")
-            
-            if [ $? -ne 0 ]; then
-              echo "  ❌ Insights step failed"
-              curl -s -X PATCH \
-                "${SUPABASE_URL}/rest/v1/refresh_logs?id=eq.${LOG_ID}" \
-                -H "apikey: ${SUPABASE_SERVICE_KEY}" \
-                -H "Authorization: Bearer ${SUPABASE_SERVICE_KEY}" \
-                -H "Content-Type: application/json" \
-                -d "{\"status\":\"failed\",\"error_message\":\"Insights step failed\",\"completed_at\":\"$(date -u +"%Y-%m-%dT%H:%M:%SZ")\"}"
-              continue
-            fi
-            
-            INSIGHTS=$(echo "$INSIGHTS_RESPONSE" | jq -c '.insights // []')
-            INSIGHTS_COUNT=$(echo "$INSIGHTS_RESPONSE" | jq '.count // 0')
-            echo "  ✓ Generated ${INSIGHTS_COUNT} insights"
-            
-            # Step 4: Generate alerts
-            echo "  🔔 Generating alerts..."
-            ALERTS_RESPONSE=$(curl -s -X POST \
-              "${NETLIFY_URL}/.netlify/functions/scan-step" \
-              -H "Content-Type: application/json" \
-              -d "{\"step\":\"analyze-alerts\",\"scanId\":\"${SCAN_ID}\",\"industry\":\"${INDUSTRY}\",\"news\":${NEWS},\"competitorNames\":${COMPETITOR_NAMES},\"userId\":\"${USER_ID}\"}")
-            
-            if [ $? -ne 0 ]; then
-              echo "  ❌ Alerts step failed"
-              curl -s -X PATCH \
-                "${SUPABASE_URL}/rest/v1/refresh_logs?id=eq.${LOG_ID}" \
-                -H "apikey: ${SUPABASE_SERVICE_KEY}" \
-                -H "Authorization: Bearer ${SUPABASE_SERVICE_KEY}" \
-                -H "Content-Type: application/json" \
-                -d "{\"status\":\"failed\",\"error_message\":\"Alerts step failed\",\"completed_at\":\"$(date -u +"%Y-%m-%dT%H:%M:%SZ")\"}"
-              continue
-            fi
-            
-            ALERTS=$(echo "$ALERTS_RESPONSE" | jq -c '.alerts // []')
-            ALERTS_COUNT=$(echo "$ALERTS_RESPONSE" | jq '.count // 0')
-            echo "  ✓ Generated ${ALERTS_COUNT} alerts"
-            
-            # Step 5: Finalize
-            echo "  💾 Finalizing..."
-            FINALIZE_RESPONSE=$(curl -s -X POST \
-              "${NETLIFY_URL}/.netlify/functions/scan-step" \
-              -H "Content-Type: application/json" \
-              -d "{\"step\":\"finalize\",\"scanId\":\"${SCAN_ID}\",\"industry\":\"${INDUSTRY}\",\"competitors\":[],\"insights\":${INSIGHTS},\"alerts\":${ALERTS},\"news\":${NEWS},\"isRefresh\":true,\"userId\":\"${USER_ID}\"}")
-            
-            if [ $? -ne 0 ]; then
-              echo "  ❌ Finalize step failed"
-              curl -s -X PATCH \
-                "${SUPABASE_URL}/rest/v1/refresh_logs?id=eq.${LOG_ID}" \
-                -H "apikey: ${SUPABASE_SERVICE_KEY}" \
-                -H "Authorization: Bearer ${SUPABASE_SERVICE_KEY}" \
-                -H "Content-Type: application/json" \
-                -d "{\"status\":\"failed\",\"error_message\":\"Finalize step failed\",\"completed_at\":\"$(date -u +"%Y-%m-%dT%H:%M:%SZ")\"}"
-              continue
-            fi
-            
-            FINAL_ALERTS=$(echo "$FINALIZE_RESPONSE" | jq '.alerts // 0')
-            FINAL_INSIGHTS=$(echo "$FINALIZE_RESPONSE" | jq '.insights // 0')
-            FINAL_NEWS=$(echo "$FINALIZE_RESPONSE" | jq '.news // 0')
-            echo "  ✓ Finalized: ${FINAL_ALERTS} alerts, ${FINAL_INSIGHTS} insights, ${FINAL_NEWS} news"
-            
-            # Mark log as success
-            curl -s -X PATCH \
-              "${SUPABASE_URL}/rest/v1/refresh_logs?id=eq.${LOG_ID}" \
-              -H "apikey: ${SUPABASE_SERVICE_KEY}" \
-              -H "Authorization: Bearer ${SUPABASE_SERVICE_KEY}" \
-              -H "Content-Type: application/json" \
-              -H "Prefer: return=minimal" \
-              -d "{\"status\":\"success\",\"completed_at\":\"$(date -u +"%Y-%m-%dT%H:%M:%SZ")\",\"new_alerts_count\":${FINAL_ALERTS},\"new_insights_count\":${FINAL_INSIGHTS},\"new_news_count\":${FINAL_NEWS}\"}"
-            
-            # Update schedule last_run_at
-            SCHEDULE_ID=$(echo "$DUE_SCHEDULES" | jq -r ".[] | select(.scan_id == \"${SCAN_ID}\") | .id")
-            curl -s -X PATCH \
-              "${SUPABASE_URL}/rest/v1/scan_schedules?id=eq.${SCHEDULE_ID}" \
-              -H "apikey: ${SUPABASE_SERVICE_KEY}" \
-              -H "Authorization: Bearer ${SUPABASE_SERVICE_KEY}" \
-              -H "Content-Type: application/json" \
-              -H "Prefer: return=minimal" \
-              -d "{\"last_run_at\":\"$(date -u +"%Y-%m-%dT%H:%M:%SZ")\"}"
-            
-            echo "  ✅ Scan ${SCAN_ID:0:8} completed successfully"
-            
-            # Wait 2 seconds between scans to avoid rate limiting
-            sleep 2
-          done
-          
-          echo ""
-          echo "🎉 All scheduled refreshes completed at $(date -u)"
-      
-      - name: Summary
-        if: always()
-        run: |
-          echo "📊 Workflow Summary:"
-          echo "  - Workflow completed"
-          echo "  - Check logs above for individual scan results"
+          main().catch(err => {
+            console.error('Fatal error:', err)
+            process.exit(1)
+          })
+          NODESCRIPT
