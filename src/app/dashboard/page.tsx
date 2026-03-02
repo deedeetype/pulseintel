@@ -138,7 +138,7 @@ export default function Dashboard() {
 
   // Calculate KPIs from real data
   const activeCompetitorsCount = competitors.length
-  const criticalAlertsCount = alertsUnreadCount
+  const criticalAlertsCount = alerts.filter(a => a.priority === 'critical' && !a.read).length
   const newInsightsCount = insights.filter(i => {
     const created = new Date(i.created_at)
     const today = new Date()
