@@ -64,15 +64,28 @@ async function refreshScan(scan: Scan, logId: string) {
       })
     })
     
-    // Step 1: Collect latest news
+    // Step 1: Fetch existing competitors (for insights/alerts generation)
+    const competitorsRes = await fetch(
+      `${SUPABASE_URL}/rest/v1/competitors?scan_id=eq.${scan.id}&select=name`,
+      {
+        headers: {
+          'apikey': SUPABASE_SERVICE_KEY!,
+          'Authorization': `Bearer ${SUPABASE_SERVICE_KEY}`
+        }
+      }
+    )
+    
+    const competitorsData = await competitorsRes.json()
+    const competitorNames = competitorsData?.map((c: any) => c.name) || []
+    console.log(`[REFRESH] Found ${competitorNames.length} existing competitors`)
+    
+    // Step 2: Collect latest news
     const newsRes = await fetch(`${process.env.URL}/.netlify/functions/scan-step`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         step: 'news',
         industry: scan.industry,
-        companyUrl: scan.company_url,
-        companyName: scan.company_name,
         isRefresh: true
       })
     })
@@ -82,31 +95,76 @@ async function refreshScan(scan: Scan, logId: string) {
     }
     
     const newsData = await newsRes.json()
-    console.log(`[REFRESH] Collected ${newsData.news?.length || 0} news items`)
+    console.log(`[REFRESH] Collected ${newsData.count || 0} news items`)
     
-    // Step 2: Analyze and generate insights
-    const analyzeRes = await fetch(`${process.env.URL}/.netlify/functions/scan-step`, {
+    // Step 3: Generate insights (NEW SPLIT STEP)
+    const insightsRes = await fetch(`${process.env.URL}/.netlify/functions/scan-step`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        step: 'analyze',
+        step: 'analyze-insights',
         scanId: scan.id,
         industry: scan.industry,
-        competitors: [],
+        news: newsData.news || [],
+        competitorNames,
+        userId: scan.user_id
+      })
+    })
+    
+    if (!insightsRes.ok) {
+      throw new Error(`Insights step failed: ${insightsRes.status}`)
+    }
+    
+    const insightsData = await insightsRes.json()
+    console.log(`[REFRESH] Generated ${insightsData.count || 0} insights`)
+    
+    // Step 4: Generate alerts (NEW SPLIT STEP)
+    const alertsRes = await fetch(`${process.env.URL}/.netlify/functions/scan-step`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        step: 'analyze-alerts',
+        scanId: scan.id,
+        industry: scan.industry,
+        news: newsData.news || [],
+        competitorNames,
+        userId: scan.user_id
+      })
+    })
+    
+    if (!alertsRes.ok) {
+      throw new Error(`Alerts step failed: ${alertsRes.status}`)
+    }
+    
+    const alertsData = await alertsRes.json()
+    console.log(`[REFRESH] Generated ${alertsData.count || 0} alerts`)
+    
+    // Step 5: Finalize (write all data to DB, mark scan as completed)
+    const finalizeRes = await fetch(`${process.env.URL}/.netlify/functions/scan-step`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        step: 'finalize',
+        scanId: scan.id,
+        industry: scan.industry,
+        competitors: [], // Don't re-insert competitors on refresh
+        insights: insightsData.insights || [],
+        alerts: alertsData.alerts || [],
         news: newsData.news || [],
         isRefresh: true,
         userId: scan.user_id
       })
     })
     
-    if (!analyzeRes.ok) {
-      throw new Error(`Analyze step failed: ${analyzeRes.status}`)
+    if (!finalizeRes.ok) {
+      throw new Error(`Finalize step failed: ${finalizeRes.status}`)
     }
     
-    const analyzeData = await analyzeRes.json()
-    const newAlertsCount = analyzeData.alerts?.length || 0
-    const newInsightsCount = analyzeData.insights?.length || 0
-    console.log(`[REFRESH] Generated ${newAlertsCount} alerts, ${newInsightsCount} insights`)
+    const finalizeData = await finalizeRes.json()
+    const newAlertsCount = finalizeData.alerts || 0
+    const newInsightsCount = finalizeData.insights || 0
+    const newNewsCount = finalizeData.news || 0
+    console.log(`[REFRESH] Finalized: ${newAlertsCount} alerts, ${newInsightsCount} insights, ${newNewsCount} news`)
     
     // Step 3: Update scan metadata
     await fetch(`${SUPABASE_URL}/rest/v1/scans?id=eq.${scan.id}`, {
@@ -142,7 +200,7 @@ async function refreshScan(scan: Scan, logId: string) {
         status: 'success',
         new_alerts_count: newAlertsCount,
         new_insights_count: newInsightsCount,
-        new_news_count: newsData.articles?.length || 0
+        new_news_count: newNewsCount
       })
     })
     
