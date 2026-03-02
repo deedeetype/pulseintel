@@ -876,10 +876,26 @@ export default function Dashboard() {
                     <div key={insight.id} onClick={() => setActiveTab('insights')}
                       className="bg-slate-900/50 backdrop-blur-sm rounded-lg p-4 hover:bg-slate-900/70 transition cursor-pointer">
                       <div className="flex items-start gap-3">
-                        <div className="text-2xl">
-                          {insight.type === 'threat' ? '⚠️' : insight.type === 'opportunity' ? '💡' : insight.type === 'trend' ? '📈' : '🎯'}
+                        <div className="flex-shrink-0">
+                          {insight.type === 'threat' ? (
+                            <div className="w-10 h-10 rounded-lg bg-red-500/10 border border-red-500/20 flex items-center justify-center">
+                              <AlertTriangle className="w-5 h-5 text-red-400" />
+                            </div>
+                          ) : insight.type === 'opportunity' ? (
+                            <div className="w-10 h-10 rounded-lg bg-green-500/10 border border-green-500/20 flex items-center justify-center">
+                              <Lightbulb className="w-5 h-5 text-green-400" />
+                            </div>
+                          ) : insight.type === 'trend' ? (
+                            <div className="w-10 h-10 rounded-lg bg-blue-500/10 border border-blue-500/20 flex items-center justify-center">
+                              <TrendingUp className="w-5 h-5 text-blue-400" />
+                            </div>
+                          ) : (
+                            <div className="w-10 h-10 rounded-lg bg-purple-500/10 border border-purple-500/20 flex items-center justify-center">
+                              <Sparkles className="w-5 h-5 text-purple-400" />
+                            </div>
+                          )}
                         </div>
-                        <div>
+                        <div className="flex-1">
                           <h3 className="text-white font-semibold mb-2">{insight.title}</h3>
                           <p className="text-slate-300 text-sm mb-3 line-clamp-2">{insight.description}</p>
                           {insight.confidence && (
