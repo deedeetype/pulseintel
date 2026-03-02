@@ -299,6 +299,18 @@ export default async function handler(
     for (const scan of scans) {
       console.log(`[CRON-REFRESH-SCANS] Creating log for scan ${scan.id}, user ${scan.user_id}`)
       
+      // 🔍 DEBUG: Log the exact payload we're sending
+      const logPayload = {
+        scan_id: scan.id,
+        user_id: scan.user_id,
+        industry: scan.industry, // 🆕 Dénormalisé pour préserver historique
+        triggered_by: 'scheduled',
+        status: 'running'
+      }
+      console.log(`[CRON-REFRESH-SCANS] 🔍 DEBUG: Log payload:`, JSON.stringify(logPayload))
+      console.log(`[CRON-REFRESH-SCANS] 🔍 DEBUG: scan.industry value:`, scan.industry)
+      console.log(`[CRON-REFRESH-SCANS] 🔍 DEBUG: scan.industry type:`, typeof scan.industry)
+      
       const logRes = await fetch(`${SUPABASE_URL}/rest/v1/refresh_logs`, {
         method: 'POST',
         headers: {
@@ -307,13 +319,7 @@ export default async function handler(
           'Content-Type': 'application/json',
           'Prefer': 'return=representation'
         },
-        body: JSON.stringify({
-          scan_id: scan.id,
-          user_id: scan.user_id,
-          industry: scan.industry, // 🆕 Dénormalisé pour préserver historique
-          triggered_by: 'scheduled',
-          status: 'running'
-        })
+        body: JSON.stringify(logPayload)
       })
       
       if (!logRes.ok) {
@@ -323,6 +329,8 @@ export default async function handler(
       }
       
       const logData = await logRes.json()
+      console.log(`[CRON-REFRESH-SCANS] 🔍 DEBUG: Log response:`, JSON.stringify(logData))
+      console.log(`[CRON-REFRESH-SCANS] 🔍 DEBUG: Created log industry:`, logData[0]?.industry)
       logIds[scan.id] = logData[0]?.id
     }
     
