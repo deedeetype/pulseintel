@@ -29,11 +29,25 @@ export default function AlertsView({ scanId }: { scanId?: string }) {
 
   const displayAlerts = showArchived ? archivedAlerts : alerts
 
-  const filtered = displayAlerts.filter(a => {
-    if (filterPriority !== 'all' && a.priority !== filterPriority) return false
-    if (filterCategory !== 'all' && a.category !== filterCategory) return false
-    return true
-  })
+  const filtered = displayAlerts
+    .filter(a => {
+      if (filterPriority !== 'all' && a.priority !== filterPriority) return false
+      if (filterCategory !== 'all' && a.category !== filterCategory) return false
+      return true
+    })
+    .sort((a, b) => {
+      // Sort by priority: critical > attention > info
+      const priorityOrder: Record<string, number> = {
+        critical: 0,
+        attention: 1,
+        info: 2
+      }
+      const priorityDiff = (priorityOrder[a.priority] ?? 2) - (priorityOrder[b.priority] ?? 2)
+      if (priorityDiff !== 0) return priorityDiff
+      
+      // Within same priority, sort by date (newest first)
+      return new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+    })
 
   const handleArchive = async (alertId: string) => {
     try {

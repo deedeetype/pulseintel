@@ -786,7 +786,21 @@ export default function Dashboard() {
                   <div className="text-slate-400 text-center py-8">No alerts yet</div>
                 ) : (
                   <div className="space-y-3">
-                    {alerts.map((alert) => (
+                    {alerts
+                      .sort((a, b) => {
+                        // Sort by priority: critical > attention > info
+                        const priorityOrder: Record<string, number> = {
+                          critical: 0,
+                          attention: 1,
+                          info: 2
+                        }
+                        const priorityDiff = (priorityOrder[a.priority] ?? 2) - (priorityOrder[b.priority] ?? 2)
+                        if (priorityDiff !== 0) return priorityDiff
+                        
+                        // Within same priority, sort by date (newest first)
+                        return new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+                      })
+                      .map((alert) => (
                       <div key={alert.id} onClick={() => { setInitialAlertId(alert.id); setActiveTab('alerts'); markAsRead(alert.id) }}
                         className="flex items-start gap-3 p-3 bg-slate-800/50 rounded-lg hover:bg-slate-800 transition cursor-pointer">
                         <div className={`w-2 h-2 rounded-full mt-2 ${
