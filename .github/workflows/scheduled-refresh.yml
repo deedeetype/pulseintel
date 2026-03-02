@@ -41,16 +41,33 @@ jobs:
             return new Promise(resolve => setTimeout(resolve, ms))
           }
           
-          async function callNetlifyFunction(step, data) {
-            const response = await fetch(`${process.env.NETLIFY_URL}/.netlify/functions/scan-step`, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ step, ...data })
-            })
-            if (!response.ok) {
-              throw new Error(`${step} step failed: ${response.status}`)
+          async function callNetlifyFunction(step, data, retries = 3) {
+            for (let i = 0; i < retries; i++) {
+              try {
+                const response = await fetch(`${process.env.NETLIFY_URL}/.netlify/functions/scan-step`, {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ step, ...data })
+                })
+                if (!response.ok) {
+                  // 502/503/504 are retryable errors
+                  if ([502, 503, 504].includes(response.status) && i < retries - 1) {
+                    console.log(`  ⚠️ ${step} step returned ${response.status}, retrying (${i + 1}/${retries})...`)
+                    await sleep(5000 * (i + 1)) // Exponential backoff: 5s, 10s, 15s
+                    continue
+                  }
+                  throw new Error(`${step} step failed: ${response.status}`)
+                }
+                return response.json()
+              } catch (error) {
+                if (i < retries - 1 && (error.message.includes('fetch failed') || error.message.includes('ECONNRESET'))) {
+                  console.log(`  ⚠️ Network error on ${step}, retrying (${i + 1}/${retries})...`)
+                  await sleep(5000 * (i + 1))
+                  continue
+                }
+                throw error
+              }
             }
-            return response.json()
           }
           
           async function processRefresh(scan, scheduleId) {
@@ -144,10 +161,13 @@ jobs:
                 })
                 .eq('id', logId)
               
-              // Update schedule last_run_at
+              // Update schedule last_run_at (only on success)
               await supabase
                 .from('scan_schedules')
-                .update({ last_run_at: new Date().toISOString() })
+                .update({ 
+                  last_run_at: new Date().toISOString(),
+                  last_success_at: new Date().toISOString()
+                })
                 .eq('id', scheduleId)
               
               console.log(`  ✅ Completed successfully`)
@@ -164,6 +184,9 @@ jobs:
                   error_message: error.message
                 })
                 .eq('id', logId)
+              
+              // Don't mark schedule as run if it failed - will retry next time
+              console.log(`  🔄 Will retry on next cron run`)
             }
           }
           
