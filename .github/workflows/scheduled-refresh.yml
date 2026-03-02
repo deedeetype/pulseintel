@@ -43,17 +43,23 @@ jobs:
           fi
           
           # Fetch scan details
-          SCAN_IDS=$(echo "$DUE_SCHEDULES" | jq -r '.[].scan_id' | paste -sd ',' -)
+          SCAN_IDS=$(echo "$DUE_SCHEDULES" | jq -r '.[].scan_id' | tr '\n' ',' | sed 's/,$//')
+          
+          if [ -z "$SCAN_IDS" ]; then
+            echo "❌ No scan IDs found"
+            exit 0
+          fi
           
           SCANS=$(curl -s -X GET \
             "${SUPABASE_URL}/rest/v1/scans?id=in.(${SCAN_IDS})&select=id,user_id,industry,company_url,company_name" \
             -H "apikey: ${SUPABASE_SERVICE_KEY}" \
             -H "Authorization: Bearer ${SUPABASE_SERVICE_KEY}")
           
+          echo "📋 Scans to process:"
           echo "$SCANS" | jq -r '.[] | "  - \(.id[0:8]) | \(.industry) | \(.company_name // "N/A")"'
           
           # Process each scan sequentially (to avoid overwhelming Netlify Functions)
-          echo "$SCANS" | jq -c '.[]' | while read scan; do
+          echo "$SCANS" | jq -c '.[]' | while IFS= read -r scan; do
             SCAN_ID=$(echo "$scan" | jq -r '.id')
             USER_ID=$(echo "$scan" | jq -r '.user_id')
             INDUSTRY=$(echo "$scan" | jq -r '.industry')
@@ -80,7 +86,7 @@ jobs:
               -H "apikey: ${SUPABASE_SERVICE_KEY}" \
               -H "Authorization: Bearer ${SUPABASE_SERVICE_KEY}")
             
-            COMPETITOR_NAMES=$(echo "$COMPETITORS" | jq -r '[.[].name] | @json')
+            COMPETITOR_NAMES=$(echo "$COMPETITORS" | jq -c '[.[].name]')
             COMPETITOR_COUNT=$(echo "$COMPETITORS" | jq '. | length')
             echo "  ✓ Found ${COMPETITOR_COUNT} competitors"
             
