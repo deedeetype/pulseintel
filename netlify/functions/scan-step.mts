@@ -495,35 +495,91 @@ async function stepFinalize(
   
   console.log(`[FINALIZE] Inserted ${insertedCompetitors.length} competitors`)
   
-  // Write alerts
-  const insertedAlerts = alerts.length > 0 ? await supabasePost('alerts',
-    alerts.map((a: any) => ({
-      user_id: actualUserId,
-      scan_id: scanId,
-      competitor_id: insertedCompetitors[0]?.id || null,
-      title: a.title,
-      description: a.description,
-      priority: a.priority || 'info',
-      category: a.category || 'news',
-      read: false
-    }))
-  ) : []
+  // Write alerts - with duplicate title checking (per scan)
+  let insertedAlerts: any[] = []
+  
+  if (alerts.length > 0) {
+    // Fetch existing alert titles for this scan
+    const existingAlertsRes = await fetch(
+      `${SUPABASE_URL}/rest/v1/alerts?scan_id=eq.${scanId}&select=title`,
+      {
+        headers: {
+          'apikey': SUPABASE_KEY!,
+          'Authorization': `Bearer ${SUPABASE_KEY}`,
+        }
+      }
+    )
+    const existingAlerts = await existingAlertsRes.json()
+    const existingTitles = new Set(
+      existingAlerts.map((a: any) => a.title).filter((title: string) => title)
+    )
+    
+    console.log(`[FINALIZE] Found ${existingTitles.size} existing alert titles for this scan`)
+    
+    // Filter out duplicates
+    const newAlerts = alerts.filter((a: any) => !existingTitles.has(a.title))
+    
+    console.log(`[FINALIZE] Filtered to ${newAlerts.length} new alerts (${alerts.length - newAlerts.length} duplicates skipped)`)
+    
+    if (newAlerts.length > 0) {
+      insertedAlerts = await supabasePost('alerts',
+        newAlerts.map((a: any) => ({
+          user_id: actualUserId,
+          scan_id: scanId,
+          competitor_id: insertedCompetitors[0]?.id || null,
+          title: a.title,
+          description: a.description,
+          priority: a.priority || 'info',
+          category: a.category || 'news',
+          read: false
+        }))
+      )
+    }
+  }
   
   console.log(`[FINALIZE] Inserted ${insertedAlerts.length} alerts`)
   
-  // Write insights
-  const insertedInsights = insights.length > 0 ? await supabasePost('insights',
-    insights.map((i: any) => ({
-      user_id: actualUserId,
-      scan_id: scanId,
-      type: i.type || 'recommendation',
-      title: i.title,
-      description: i.description,
-      confidence: i.confidence || 0.7,
-      impact: i.impact || 'medium',
-      action_items: i.action_items || []
-    }))
-  ) : []
+  // Write insights - with duplicate title checking (per scan)
+  let insertedInsights: any[] = []
+  
+  if (insights.length > 0) {
+    // Fetch existing insight titles for this scan
+    const existingInsightsRes = await fetch(
+      `${SUPABASE_URL}/rest/v1/insights?scan_id=eq.${scanId}&select=title`,
+      {
+        headers: {
+          'apikey': SUPABASE_KEY!,
+          'Authorization': `Bearer ${SUPABASE_KEY}`,
+        }
+      }
+    )
+    const existingInsights = await existingInsightsRes.json()
+    const existingTitles = new Set(
+      existingInsights.map((i: any) => i.title).filter((title: string) => title)
+    )
+    
+    console.log(`[FINALIZE] Found ${existingTitles.size} existing insight titles for this scan`)
+    
+    // Filter out duplicates
+    const newInsights = insights.filter((i: any) => !existingTitles.has(i.title))
+    
+    console.log(`[FINALIZE] Filtered to ${newInsights.length} new insights (${insights.length - newInsights.length} duplicates skipped)`)
+    
+    if (newInsights.length > 0) {
+      insertedInsights = await supabasePost('insights',
+        newInsights.map((i: any) => ({
+          user_id: actualUserId,
+          scan_id: scanId,
+          type: i.type || 'recommendation',
+          title: i.title,
+          description: i.description,
+          confidence: i.confidence || 0.7,
+          impact: i.impact || 'medium',
+          action_items: i.action_items || []
+        }))
+      )
+    }
+  }
   
   console.log(`[FINALIZE] Inserted ${insertedInsights.length} insights`)
   
