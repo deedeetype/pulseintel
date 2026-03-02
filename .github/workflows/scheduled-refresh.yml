@@ -1,4 +1,4 @@
-name: Hourly Scan Refresh
+name: Scheduled Scan Refresh
 
 on:
   schedule:
@@ -9,17 +9,201 @@ on:
 jobs:
   refresh-scans:
     runs-on: ubuntu-latest
+    timeout-minutes: 120 # 2 hours max (plenty of time for hundreds of scans)
     
     steps:
-      - name: Trigger scheduled refresh
-        run: |
-          curl -X POST https://pulseintel.netlify.app/api/cron/refresh-scans \
-            -H "Content-Type: application/json" \
-            -H "X-Cron-Secret: ${{ secrets.CRON_SECRET }}" \
-            -w "\nHTTP Status: %{http_code}\n" \
-            -s -S
+      - name: Checkout repo
+        uses: actions/checkout@v4
       
-      - name: Log completion
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      
+      - name: Fetch due schedules and process refreshes
+        env:
+          SUPABASE_URL: https://erkzlqgpbrxokyqtrgnf.supabase.co
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+          NETLIFY_URL: https://pulseintel.netlify.app
         run: |
-          echo "✅ Scheduled refresh triggered successfully"
-          echo "Timestamp: $(date -u)"
+          echo "🦝 Starting scheduled refresh at $(date -u)"
+          
+          # Fetch all enabled schedules that are due
+          DUE_SCHEDULES=$(curl -s -X GET \
+            "${SUPABASE_URL}/rest/v1/scan_schedules?enabled=eq.true&next_run_at=lte.$(date -u +"%Y-%m-%dT%H:%M:%S")&select=id,scan_id,user_id,frequency" \
+            -H "apikey: ${SUPABASE_SERVICE_KEY}" \
+            -H "Authorization: Bearer ${SUPABASE_SERVICE_KEY}")
+          
+          SCHEDULE_COUNT=$(echo "$DUE_SCHEDULES" | jq '. | length')
+          echo "📅 Found $SCHEDULE_COUNT due schedules"
+          
+          if [ "$SCHEDULE_COUNT" -eq 0 ]; then
+            echo "✅ No schedules due - exiting"
+            exit 0
+          fi
+          
+          # Fetch scan details
+          SCAN_IDS=$(echo "$DUE_SCHEDULES" | jq -r '.[].scan_id' | paste -sd ',' -)
+          
+          SCANS=$(curl -s -X GET \
+            "${SUPABASE_URL}/rest/v1/scans?id=in.(${SCAN_IDS})&select=id,user_id,industry,company_url,company_name" \
+            -H "apikey: ${SUPABASE_SERVICE_KEY}" \
+            -H "Authorization: Bearer ${SUPABASE_SERVICE_KEY}")
+          
+          echo "$SCANS" | jq -r '.[] | "  - \(.id[0:8]) | \(.industry) | \(.company_name // "N/A")"'
+          
+          # Process each scan sequentially (to avoid overwhelming Netlify Functions)
+          echo "$SCANS" | jq -c '.[]' | while read scan; do
+            SCAN_ID=$(echo "$scan" | jq -r '.id')
+            USER_ID=$(echo "$scan" | jq -r '.user_id')
+            INDUSTRY=$(echo "$scan" | jq -r '.industry')
+            
+            echo ""
+            echo "🔄 Processing scan: ${SCAN_ID:0:8} (${INDUSTRY})"
+            
+            # Create refresh log
+            LOG_RESPONSE=$(curl -s -X POST \
+              "${SUPABASE_URL}/rest/v1/refresh_logs" \
+              -H "apikey: ${SUPABASE_SERVICE_KEY}" \
+              -H "Authorization: Bearer ${SUPABASE_SERVICE_KEY}" \
+              -H "Content-Type: application/json" \
+              -H "Prefer: return=representation" \
+              -d "{\"scan_id\":\"${SCAN_ID}\",\"user_id\":\"${USER_ID}\",\"triggered_by\":\"scheduled\",\"status\":\"running\",\"started_at\":\"$(date -u +"%Y-%m-%dT%H:%M:%SZ")\"}")
+            
+            LOG_ID=$(echo "$LOG_RESPONSE" | jq -r '.[0].id')
+            echo "  📝 Created log: ${LOG_ID:0:8}"
+            
+            # Step 1: Fetch existing competitors
+            echo "  👥 Fetching competitors..."
+            COMPETITORS=$(curl -s -X GET \
+              "${SUPABASE_URL}/rest/v1/competitors?scan_id=eq.${SCAN_ID}&select=name" \
+              -H "apikey: ${SUPABASE_SERVICE_KEY}" \
+              -H "Authorization: Bearer ${SUPABASE_SERVICE_KEY}")
+            
+            COMPETITOR_NAMES=$(echo "$COMPETITORS" | jq -r '[.[].name] | @json')
+            COMPETITOR_COUNT=$(echo "$COMPETITORS" | jq '. | length')
+            echo "  ✓ Found ${COMPETITOR_COUNT} competitors"
+            
+            # Step 2: Collect news
+            echo "  📰 Collecting news..."
+            NEWS_RESPONSE=$(curl -s -X POST \
+              "${NETLIFY_URL}/.netlify/functions/scan-step" \
+              -H "Content-Type: application/json" \
+              -d "{\"step\":\"news\",\"industry\":\"${INDUSTRY}\"}")
+            
+            if [ $? -ne 0 ]; then
+              echo "  ❌ News step failed"
+              curl -s -X PATCH \
+                "${SUPABASE_URL}/rest/v1/refresh_logs?id=eq.${LOG_ID}" \
+                -H "apikey: ${SUPABASE_SERVICE_KEY}" \
+                -H "Authorization: Bearer ${SUPABASE_SERVICE_KEY}" \
+                -H "Content-Type: application/json" \
+                -d "{\"status\":\"failed\",\"error_message\":\"News step failed\",\"completed_at\":\"$(date -u +"%Y-%m-%dT%H:%M:%SZ")\"}"
+              continue
+            fi
+            
+            NEWS=$(echo "$NEWS_RESPONSE" | jq -c '.news // []')
+            NEWS_COUNT=$(echo "$NEWS_RESPONSE" | jq '.count // 0')
+            echo "  ✓ Collected ${NEWS_COUNT} news items"
+            
+            # Step 3: Generate insights
+            echo "  💡 Generating insights..."
+            INSIGHTS_RESPONSE=$(curl -s -X POST \
+              "${NETLIFY_URL}/.netlify/functions/scan-step" \
+              -H "Content-Type: application/json" \
+              -d "{\"step\":\"analyze-insights\",\"scanId\":\"${SCAN_ID}\",\"industry\":\"${INDUSTRY}\",\"news\":${NEWS},\"competitorNames\":${COMPETITOR_NAMES},\"userId\":\"${USER_ID}\"}")
+            
+            if [ $? -ne 0 ]; then
+              echo "  ❌ Insights step failed"
+              curl -s -X PATCH \
+                "${SUPABASE_URL}/rest/v1/refresh_logs?id=eq.${LOG_ID}" \
+                -H "apikey: ${SUPABASE_SERVICE_KEY}" \
+                -H "Authorization: Bearer ${SUPABASE_SERVICE_KEY}" \
+                -H "Content-Type: application/json" \
+                -d "{\"status\":\"failed\",\"error_message\":\"Insights step failed\",\"completed_at\":\"$(date -u +"%Y-%m-%dT%H:%M:%SZ")\"}"
+              continue
+            fi
+            
+            INSIGHTS=$(echo "$INSIGHTS_RESPONSE" | jq -c '.insights // []')
+            INSIGHTS_COUNT=$(echo "$INSIGHTS_RESPONSE" | jq '.count // 0')
+            echo "  ✓ Generated ${INSIGHTS_COUNT} insights"
+            
+            # Step 4: Generate alerts
+            echo "  🔔 Generating alerts..."
+            ALERTS_RESPONSE=$(curl -s -X POST \
+              "${NETLIFY_URL}/.netlify/functions/scan-step" \
+              -H "Content-Type: application/json" \
+              -d "{\"step\":\"analyze-alerts\",\"scanId\":\"${SCAN_ID}\",\"industry\":\"${INDUSTRY}\",\"news\":${NEWS},\"competitorNames\":${COMPETITOR_NAMES},\"userId\":\"${USER_ID}\"}")
+            
+            if [ $? -ne 0 ]; then
+              echo "  ❌ Alerts step failed"
+              curl -s -X PATCH \
+                "${SUPABASE_URL}/rest/v1/refresh_logs?id=eq.${LOG_ID}" \
+                -H "apikey: ${SUPABASE_SERVICE_KEY}" \
+                -H "Authorization: Bearer ${SUPABASE_SERVICE_KEY}" \
+                -H "Content-Type: application/json" \
+                -d "{\"status\":\"failed\",\"error_message\":\"Alerts step failed\",\"completed_at\":\"$(date -u +"%Y-%m-%dT%H:%M:%SZ")\"}"
+              continue
+            fi
+            
+            ALERTS=$(echo "$ALERTS_RESPONSE" | jq -c '.alerts // []')
+            ALERTS_COUNT=$(echo "$ALERTS_RESPONSE" | jq '.count // 0')
+            echo "  ✓ Generated ${ALERTS_COUNT} alerts"
+            
+            # Step 5: Finalize
+            echo "  💾 Finalizing..."
+            FINALIZE_RESPONSE=$(curl -s -X POST \
+              "${NETLIFY_URL}/.netlify/functions/scan-step" \
+              -H "Content-Type: application/json" \
+              -d "{\"step\":\"finalize\",\"scanId\":\"${SCAN_ID}\",\"industry\":\"${INDUSTRY}\",\"competitors\":[],\"insights\":${INSIGHTS},\"alerts\":${ALERTS},\"news\":${NEWS},\"isRefresh\":true,\"userId\":\"${USER_ID}\"}")
+            
+            if [ $? -ne 0 ]; then
+              echo "  ❌ Finalize step failed"
+              curl -s -X PATCH \
+                "${SUPABASE_URL}/rest/v1/refresh_logs?id=eq.${LOG_ID}" \
+                -H "apikey: ${SUPABASE_SERVICE_KEY}" \
+                -H "Authorization: Bearer ${SUPABASE_SERVICE_KEY}" \
+                -H "Content-Type: application/json" \
+                -d "{\"status\":\"failed\",\"error_message\":\"Finalize step failed\",\"completed_at\":\"$(date -u +"%Y-%m-%dT%H:%M:%SZ")\"}"
+              continue
+            fi
+            
+            FINAL_ALERTS=$(echo "$FINALIZE_RESPONSE" | jq '.alerts // 0')
+            FINAL_INSIGHTS=$(echo "$FINALIZE_RESPONSE" | jq '.insights // 0')
+            FINAL_NEWS=$(echo "$FINALIZE_RESPONSE" | jq '.news // 0')
+            echo "  ✓ Finalized: ${FINAL_ALERTS} alerts, ${FINAL_INSIGHTS} insights, ${FINAL_NEWS} news"
+            
+            # Mark log as success
+            curl -s -X PATCH \
+              "${SUPABASE_URL}/rest/v1/refresh_logs?id=eq.${LOG_ID}" \
+              -H "apikey: ${SUPABASE_SERVICE_KEY}" \
+              -H "Authorization: Bearer ${SUPABASE_SERVICE_KEY}" \
+              -H "Content-Type: application/json" \
+              -H "Prefer: return=minimal" \
+              -d "{\"status\":\"success\",\"completed_at\":\"$(date -u +"%Y-%m-%dT%H:%M:%SZ")\",\"new_alerts_count\":${FINAL_ALERTS},\"new_insights_count\":${FINAL_INSIGHTS},\"new_news_count\":${FINAL_NEWS}\"}"
+            
+            # Update schedule last_run_at
+            SCHEDULE_ID=$(echo "$DUE_SCHEDULES" | jq -r ".[] | select(.scan_id == \"${SCAN_ID}\") | .id")
+            curl -s -X PATCH \
+              "${SUPABASE_URL}/rest/v1/scan_schedules?id=eq.${SCHEDULE_ID}" \
+              -H "apikey: ${SUPABASE_SERVICE_KEY}" \
+              -H "Authorization: Bearer ${SUPABASE_SERVICE_KEY}" \
+              -H "Content-Type: application/json" \
+              -H "Prefer: return=minimal" \
+              -d "{\"last_run_at\":\"$(date -u +"%Y-%m-%dT%H:%M:%SZ")\"}"
+            
+            echo "  ✅ Scan ${SCAN_ID:0:8} completed successfully"
+            
+            # Wait 2 seconds between scans to avoid rate limiting
+            sleep 2
+          done
+          
+          echo ""
+          echo "🎉 All scheduled refreshes completed at $(date -u)"
+      
+      - name: Summary
+        if: always()
+        run: |
+          echo "📊 Workflow Summary:"
+          echo "  - Workflow completed"
+          echo "  - Check logs above for individual scan results"
