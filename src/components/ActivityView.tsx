@@ -36,34 +36,37 @@ export default function ActivityView() {
   
   const fetchActivityLogs = async () => {
     try {
-      const { data, error } = await supabase
+      // Fetch logs
+      const { data: logsData, error: logsError } = await supabase
         .from('refresh_logs')
-        .select(`
-          id,
-          scan_id,
-          triggered_by,
-          started_at,
-          completed_at,
-          status,
-          new_alerts_count,
-          new_insights_count,
-          new_news_count,
-          error_message,
-          scans (
-            industry,
-            company_name
-          )
-        `)
+        .select('*')
         .eq('user_id', user?.id)
-        .order('completed_at', { ascending: false })
+        .order('started_at', { ascending: false })
         .limit(50)
       
-      if (error) throw error
+      if (logsError) throw logsError
       
-      const logsWithScan = data?.map(log => ({
+      if (!logsData || logsData.length === 0) {
+        setLogs([])
+        return
+      }
+      
+      // Fetch corresponding scans separately (JOIN doesn't work reliably)
+      const scanIds = [...new Set(logsData.map(log => log.scan_id))]
+      const { data: scansData, error: scansError } = await supabase
+        .from('scans')
+        .select('id, industry, company_name')
+        .in('id', scanIds)
+      
+      if (scansError) {
+        console.error('Error fetching scans:', scansError)
+      }
+      
+      // Merge logs with scan data
+      const logsWithScan = logsData.map(log => ({
         ...log,
-        scan: Array.isArray(log.scans) ? log.scans[0] : log.scans
-      })) || []
+        scan: scansData?.find(s => s.id === log.scan_id) || null
+      }))
       
       setLogs(logsWithScan)
     } catch (error) {
