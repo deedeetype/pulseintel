@@ -310,6 +310,7 @@ export default async function handler(
         body: JSON.stringify({
           scan_id: scan.id,
           user_id: scan.user_id,
+          industry: scan.industry, // 🆕 Dénormalisé pour préserver historique
           triggered_by: 'scheduled',
           status: 'running'
         })

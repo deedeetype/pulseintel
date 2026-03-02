@@ -9,6 +9,7 @@ import { getIndustryDisplayName } from '@/constants/industries'
 interface RefreshLog {
   id: string
   scan_id: string
+  industry?: string  // 🆕 Dénormalisé depuis scans (pour préserver historique)
   triggered_by: 'manual' | 'scheduled'
   started_at: string
   completed_at: string
@@ -176,7 +177,12 @@ export default function ActivityView() {
                 <div className="flex items-center gap-2 flex-wrap">
                   <h3 className="text-white font-medium">
                     {log.scan?.company_name ? `${log.scan.company_name} — ` : ''}
-                    {log.scan?.industry ? getIndustryDisplayName(log.scan.industry) : 'Unknown Industry'}
+                    {/* 🆕 Priorité: industry direct > scan.industry > fallback */}
+                    {log.industry 
+                      ? getIndustryDisplayName(log.industry)
+                      : log.scan?.industry 
+                      ? getIndustryDisplayName(log.scan.industry)
+                      : 'Deleted Profile'}
                   </h3>
                   {getTriggerBadge(log.triggered_by)}
                   {log.status === 'success' && (
