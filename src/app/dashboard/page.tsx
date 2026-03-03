@@ -36,15 +36,22 @@ import {
   Sparkles,
   TrendingUp,
   CheckCircle2,
-  Activity
+  Activity,
+  Crown
 } from 'lucide-react'
 import ActivityView from '@/components/ActivityView'
+import PlanBadge from '@/components/PlanBadge'
+import UpgradeModal from '@/components/UpgradeModal'
+import { useSubscription } from '@/hooks/useSubscription'
 
 export default function Dashboard() {
   const { user, isLoaded } = useUser()
   const { getToken } = useAuth()
   const { settings, t } = useSettings()
+  const { plan, isFreePlan } = useSubscription()
   const [activeTab, setActiveTab] = useState('overview')
+  const [showUpgradeModal, setShowUpgradeModal] = useState(false)
+  const [upgradeReason, setUpgradeReason] = useState('')
   
   // Redirect to onboarding if user hasn't completed it
   useEffect(() => {
@@ -505,7 +512,7 @@ export default function Dashboard() {
 
         {!sidebarCollapsed && (
           <div className="absolute bottom-0 left-0 right-0 p-4 border-t border-slate-800">
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-3 mb-3">
               <UserButton 
                 appearance={{
                   elements: {
@@ -515,9 +522,21 @@ export default function Dashboard() {
               />
               <div className="flex-1">
                 <div className="text-sm font-medium text-white">{user?.firstName || user?.username || 'User'}</div>
-                <div className="text-xs text-slate-400">{t('free_plan')}</div>
+                <PlanBadge />
               </div>
             </div>
+            {isFreePlan && (
+              <button
+                onClick={() => {
+                  setUpgradeReason('Unlock all premium features and grow your competitive intelligence.')
+                  setShowUpgradeModal(true)
+                }}
+                className="w-full bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white px-4 py-2 rounded-lg font-semibold text-sm transition-all flex items-center justify-center gap-2"
+              >
+                <Crown className="w-4 h-4" />
+                Upgrade Now
+              </button>
+            )}
           </div>
         )}
         
@@ -1185,6 +1204,13 @@ export default function Dashboard() {
           </div>
         </div>
       )}
+
+      {/* Upgrade Modal */}
+      <UpgradeModal
+        isOpen={showUpgradeModal}
+        onClose={() => setShowUpgradeModal(false)}
+        reason={upgradeReason}
+      />
     </div>
   )
 }
