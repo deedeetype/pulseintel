@@ -42,6 +42,12 @@ export default function LandingPage() {
           </div>
           <div className="flex items-center gap-4">
             <Link 
+              href="/pricing" 
+              className="text-slate-300 hover:text-white transition-colors px-4 py-2"
+            >
+              Pricing
+            </Link>
+            <Link 
               href="/sign-in" 
               className="text-slate-300 hover:text-white transition-colors px-4 py-2"
             >
@@ -91,10 +97,10 @@ export default function LandingPage() {
               <ChevronRight className="w-5 h-5" />
             </Link>
             <Link 
-              href="/demo"
+              href="/pricing"
               className="border border-slate-700 hover:border-slate-600 text-white px-8 py-4 rounded-lg font-semibold text-lg transition-colors"
             >
-              Watch Demo
+              View Pricing
             </Link>
           </div>
 
@@ -161,13 +167,21 @@ export default function LandingPage() {
           <p className="text-indigo-100 text-lg mb-8">
             Join forward-thinking teams using PulseIntel to stay ahead
           </p>
-          <Link 
-            href="/sign-up"
-            className="inline-flex items-center gap-2 bg-white text-indigo-600 hover:bg-slate-100 px-8 py-4 rounded-lg font-semibold text-lg transition-colors"
-          >
-            Get Started for Free
-            <ChevronRight className="w-5 h-5" />
-          </Link>
+          <div className="flex items-center justify-center gap-4">
+            <Link 
+              href="/sign-up"
+              className="inline-flex items-center gap-2 bg-white text-indigo-600 hover:bg-slate-100 px-8 py-4 rounded-lg font-semibold text-lg transition-colors"
+            >
+              Get Started for Free
+              <ChevronRight className="w-5 h-5" />
+            </Link>
+            <Link 
+              href="/pricing"
+              className="inline-flex items-center gap-2 bg-transparent border-2 border-white text-white hover:bg-white/10 px-8 py-4 rounded-lg font-semibold text-lg transition-colors"
+            >
+              View Plans
+            </Link>
+          </div>
         </div>
       </section>
 
