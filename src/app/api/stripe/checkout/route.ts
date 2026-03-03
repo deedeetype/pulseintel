@@ -8,7 +8,7 @@ import { auth } from '@clerk/nextjs/server'
 import Stripe from 'stripe'
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
-  apiVersion: '2024-11-20.acacia'
+  apiVersion: '2023-10-16'
 })
 
 // Price IDs for each plan (you'll need to create these in Stripe Dashboard)
