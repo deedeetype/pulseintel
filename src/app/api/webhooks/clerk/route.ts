@@ -73,8 +73,8 @@ export async function POST(req: Request) {
           body: JSON.stringify({
             clerk_id: userId,
             email,
-            name: `${firstName || ''} ${lastName || ''}`.trim() || username || email,
-            created_at: createdAt
+            name: `${firstName || ''} ${lastName || ''}`.trim() || username || email
+            // Let Supabase set created_at automatically with DEFAULT NOW()
           })
         })
 
