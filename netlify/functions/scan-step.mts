@@ -150,6 +150,58 @@ async function stepInit(industry: string, companyUrl?: string, companyName?: str
   // Use Clerk ID directly (TEXT, no conversion needed)
   const actualUserId = userId
   
+  // ✅ CHECK PLAN LIMITS (server-side enforcement)
+  console.log('[stepInit] Checking plan limits...')
+  
+  // Get user subscription
+  const subRes = await fetch(
+    `${SUPABASE_URL}/rest/v1/user_subscriptions?user_id=eq.${actualUserId}&order=created_at.desc&limit=1`,
+    {
+      headers: {
+        'apikey': SUPABASE_KEY!,
+        'Authorization': `Bearer ${SUPABASE_KEY}`,
+      }
+    }
+  )
+  
+  const subs = await subRes.json()
+  const plan = subs?.[0]?.plan || 'free'
+  console.log(`[stepInit] User plan: ${plan}`)
+  
+  // Count active scans (exclude failed)
+  const countRes = await fetch(
+    `${SUPABASE_URL}/rest/v1/scans?user_id=eq.${actualUserId}&status=neq.failed&select=id`,
+    {
+      headers: {
+        'apikey': SUPABASE_KEY!,
+        'Authorization': `Bearer ${SUPABASE_KEY}`,
+      }
+    }
+  )
+  
+  const scans = await countRes.json()
+  const activeScans = scans?.length || 0
+  console.log(`[stepInit] Active scans: ${activeScans}`)
+  
+  // Plan limits
+  const limits: Record<string, number> = {
+    free: 1,
+    starter: 1,
+    pro: 3,
+    business: 10,
+    enterprise: 999
+  }
+  
+  const limit = limits[plan] || 1
+  
+  if (activeScans >= limit) {
+    console.error(`[stepInit] Plan limit reached: ${activeScans}/${limit}`)
+    throw new Error(`Plan limit reached. You have ${activeScans} active profile${activeScans > 1 ? 's' : ''}. Your ${plan} plan allows ${limit}. Please upgrade to create more.`)
+  }
+  
+  console.log(`[stepInit] Limit check passed: ${activeScans}/${limit}`)
+  // ✅ END PLAN LIMITS CHECK
+  
   // Check for existing completed profile with same industry (and optionally same company_url)
   let queryUrl = `${SUPABASE_URL}/rest/v1/scans?user_id=eq.${actualUserId}&industry=eq.${encodeURIComponent(industry)}&status=eq.completed&order=created_at.desc&limit=1`
   
