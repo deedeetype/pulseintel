@@ -50,6 +50,12 @@ export async function POST(req: Request) {
     switch (eventType) {
       case 'user.created':
       case 'user.updated':
+        // LOG: Full event data for debugging
+        console.log('==================')
+        console.log('EVENT TYPE:', eventType)
+        console.log('USER DATA:', JSON.stringify(userData, null, 2))
+        console.log('==================')
+        
         // Extract user data
         const userId = userData.id
         const email = userData.email_addresses?.[0]?.email_address
@@ -59,6 +65,12 @@ export async function POST(req: Request) {
         const imageUrl = userData.image_url
         const createdAt = new Date(userData.created_at).toISOString()
         const updatedAt = new Date(userData.updated_at).toISOString()
+        
+        // LOG: Extracted values
+        console.log('EXTRACTED:')
+        console.log('- userId:', userId)
+        console.log('- email:', email)
+        console.log('- name:', `${firstName || ''} ${lastName || ''}`.trim() || username || email)
 
         // Upsert to Supabase users table (only fields that exist in schema)
         // Use resolution=merge-duplicates with on_conflict to properly handle updates
@@ -80,6 +92,16 @@ export async function POST(req: Request) {
 
         if (!res.ok) {
           const text = await res.text()
+          console.error('==================')
+          console.error('SUPABASE UPSERT FAILED!')
+          console.error('Status:', res.status)
+          console.error('Response:', text)
+          console.error('Body sent:', JSON.stringify({
+            clerk_id: userId,
+            email,
+            name: `${firstName || ''} ${lastName || ''}`.trim() || username || email
+          }, null, 2))
+          console.error('==================')
           console.error('Supabase upsert failed:', res.status, text)
           // Don't fail on 409 (conflict) - it means user already exists which is fine
           if (res.status !== 409) {
